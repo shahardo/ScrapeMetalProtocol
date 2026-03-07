@@ -23,8 +23,8 @@ Client runs on `:5173`, server on `:3001`.
 
 **Server** (`app/server/src/index.ts`):
 - Fastify handles REST (auth, garage saves)
-- Socket.io handles matchmaking signaling and (currently) input relay
-- WebRTC P2P data channels will handle low-latency combat sync in Sprint 5-6
+- Socket.io handles matchmaking signaling and WebRTC SDP/ICE relay
+- WebRTC P2P DataChannel carries 20 Hz robot snapshots (`RobotSnapshot` type)
 
 ## Coding Standards (from PDD — non-negotiable)
 
@@ -66,6 +66,6 @@ Don't build ahead of the current sprint without flagging it.
 
 - **Sprint 1-2 (done):** physics engine, controllable robot, test arena
 - **Sprint 3-4 (done):** `RobotEntity` component system, joint attachments, impact listeners that break parts
-- **Sprint 5-6 (next):** Socket.io matchmaking, WebRTC DataChannels, client-side prediction
-- **Sprint 7-8:** Garage UI, MongoDB schemas, voice chat (`getUserMedia`)
+- **Sprint 5-6 (done):** Socket.io matchmaking, WebRTC DataChannels, 20 Hz snapshot broadcast
+- **Sprint 7-8 (next):** Garage UI, MongoDB schemas, voice chat (`getUserMedia`)
 - **Sprint 9+:** Web Worker bot sandbox, shaders, audio, V1.0

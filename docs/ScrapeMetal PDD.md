@@ -102,12 +102,12 @@ To ensure long-term maintainability and collaboration, all developers must adher
 * Implement joint attachments (connecting arms/legs to the chassis). ✅
 * Implement impact listeners: detect when impulse exceeds a threshold to break a joint and spawn a disconnected physics object. ✅
 
-### **Sprint 5-6: Netcode Foundations**
+### **Sprint 5-6: Netcode Foundations** ✅ Done
 
-* Setup Node.js/Socket.io signaling server.  
-* Implement matchmaking queue.  
-* Establish WebRTC DataChannels between two peers.  
-* Send position/rotation arrays at a fixed tick rate (e.g., 20 ticks per second).
+* Setup Node.js/Socket.io signaling server. ✅
+* Implement matchmaking queue. ✅
+* Establish WebRTC DataChannels between two peers. ✅
+* Send position/rotation arrays at a fixed tick rate (e.g., 20 ticks per second). ✅
 
 ### **Sprint 7-8: Garage, DB, and Voice Chat**
 

@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -9,5 +10,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+  },
+  test: {
+    // Node environment — our tests cover pure functions and Zustand stores,
+    // not DOM rendering, so we don't need jsdom/happy-dom overhead.
+    environment: 'node',
+    include: ['tests/**/*.test.ts'],
   },
 })

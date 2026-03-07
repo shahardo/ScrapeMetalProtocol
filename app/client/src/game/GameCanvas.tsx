@@ -3,6 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import { Arena } from './Arena'
 import { RobotEntity } from './robot/RobotEntity'
+import { RemoteRobotEntity } from './RemoteRobotEntity'
+import { useNetworking } from '../network/useNetworking'
 
 // ── React Error Boundary ──────────────────────────────────────────────────────
 
@@ -110,48 +112,85 @@ function CameraController() {
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
 export function GameCanvas() {
+  const { status, joinQueue, leaveQueue, sendSnapshot, latestRemoteSnapshot } = useNetworking()
+
   return (
-    <GameErrorBoundary>
-      <Canvas
-        shadows
-        camera={{
-          position: [0, 5.5, 14],
-          fov: 45,
-          near: 0.1,
-          far: 200,
-        }}
-        style={{ background: '#1a2030', width: '100%', height: '100%' }}
-      >
-        <CameraController />
+    <>
+      {/* ── Matchmaking overlay (visible until P2P channel is open) ───────── */}
+      {status !== 'matched' && (
+        <div className="matchmaking-overlay">
+          <div className="matchmaking-panel">
+            {status === 'disconnected' && (
+              <>
+                <p className="matchmaking-tagline">PILOT READY</p>
+                <button className="matchmaking-btn" onClick={joinQueue}>FIND MATCH</button>
+              </>
+            )}
+            {status === 'queued' && (
+              <>
+                <p className="matchmaking-tagline">SEARCHING FOR OPPONENT<span className="matchmaking-dots">...</span></p>
+                <button className="matchmaking-btn matchmaking-btn--cancel" onClick={leaveQueue}>CANCEL</button>
+              </>
+            )}
+            {status === 'connecting' && (
+              <p className="matchmaking-tagline">ESTABLISHING P2P LINK<span className="matchmaking-dots">...</span></p>
+            )}
+          </div>
+        </div>
+      )}
 
-        {/* ── Lighting ─────────────────────────────────────────────────── */}
-        <ambientLight intensity={0.7} />
+      <GameErrorBoundary>
+        <Canvas
+          shadows
+          camera={{
+            position: [0, 5.5, 14],
+            fov: 45,
+            near: 0.1,
+            far: 200,
+          }}
+          style={{ background: '#1a2030', width: '100%', height: '100%' }}
+        >
+          <CameraController />
 
-        <directionalLight
-          position={[4, 12, 6]}
-          intensity={2.2}
-          castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-15}
-          shadow-camera-right={15}
-          shadow-camera-top={12}
-          shadow-camera-bottom={-4}
-        />
+          {/* ── Lighting ─────────────────────────────────────────────────── */}
+          <ambientLight intensity={0.7} />
 
-        {/* Fill from opposite side — reduces harsh shadows */}
-        <pointLight position={[-8, 8, 4]} intensity={1.0} color="#3a5080" />
+          <directionalLight
+            position={[4, 12, 6]}
+            intensity={2.2}
+            castShadow
+            shadow-mapSize={[2048, 2048]}
+            shadow-camera-left={-15}
+            shadow-camera-right={15}
+            shadow-camera-top={12}
+            shadow-camera-bottom={-4}
+          />
 
-        {/* Warm under-light for the floor surface */}
-        <pointLight position={[0, 1, 3]} intensity={0.5} color="#806040" />
+          {/* Fill from opposite side — reduces harsh shadows */}
+          <pointLight position={[-8, 8, 4]} intensity={1.0} color="#3a5080" />
 
-        {/* ── Physics world ────────────────────────────────────────────── */}
-        <Suspense fallback={null}>
-          <Physics gravity={[0, -30, 0]}>
-            <Arena />
-            <RobotEntity color="#4a8aaa" startPosition={[-3, 3, 0]} />
-          </Physics>
-        </Suspense>
-      </Canvas>
-    </GameErrorBoundary>
+          {/* Warm under-light for the floor surface */}
+          <pointLight position={[0, 1, 3]} intensity={0.5} color="#806040" />
+
+          {/* ── Physics world ────────────────────────────────────────────── */}
+          <Suspense fallback={null}>
+            <Physics gravity={[0, -30, 0]}>
+              <Arena />
+              <RobotEntity
+                color="#4a8aaa"
+                startPosition={[-3, 3, 0]}
+                onSnapshot={sendSnapshot}
+              />
+              {status === 'matched' && (
+                <RemoteRobotEntity
+                  color="#aa4a4a"
+                  latestSnapshot={latestRemoteSnapshot}
+                />
+              )}
+            </Physics>
+          </Suspense>
+        </Canvas>
+      </GameErrorBoundary>
+    </>
   )
 }

@@ -51,6 +51,15 @@ export interface PlayerInput {
   attack: boolean
 }
 
+/** Physics snapshot broadcast to the opponent over WebRTC DataChannel at ~20 Hz. */
+export interface RobotSnapshot {
+  tick: number
+  pos: [number, number, number]
+  /** Quaternion [x, y, z, w] */
+  rot: [number, number, number, number]
+  vel: [number, number, number]
+}
+
 /** Damage event emitted when a joint breaks or a part is struck. */
 export interface DamageEvent {
   targetPlayerId: string

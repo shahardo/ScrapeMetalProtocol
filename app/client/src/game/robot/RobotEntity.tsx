@@ -7,6 +7,7 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier'
 import { useControls } from '../useControls'
+import type { RobotSnapshot } from '../../types/game'
 
 // ── Movement constants ────────────────────────────────────────────────────────
 const WALK_SPEED   = 5    // m/s
@@ -38,7 +39,8 @@ const PLAYER_COLLISION_GROUPS = interactionGroups(
 // Rotates vector v by quaternion q using the formula:
 //   v' = v + 2w(q.xyz × v) + 2(q.xyz × (q.xyz × v))
 // Used to transform a local-space offset into world space each frame.
-function rotateByQuat(
+// Exported for unit testing.
+export function rotateByQuat(
   v: [number, number, number],
   q: { x: number; y: number; z: number; w: number },
 ): [number, number, number] {
@@ -135,6 +137,8 @@ function PartWithJoint({
 interface RobotEntityProps {
   color?: string
   startPosition?: [number, number, number]
+  /** Called at ~20 Hz with the chassis physics state; used to send snapshots over WebRTC. */
+  onSnapshot?: (snap: RobotSnapshot) => void
 }
 
 /**
@@ -149,6 +153,7 @@ interface RobotEntityProps {
 export function RobotEntity({
   color = '#4a8aaa',
   startPosition = [0, 2, 0],
+  onSnapshot,
 }: RobotEntityProps) {
   const chassisRef = useRef<RapierRigidBody>(null)
   const controls   = useControls()
@@ -156,6 +161,7 @@ export function RobotEntity({
   const facingAngle    = useRef(0)
   const groundContacts = useRef(0)
   const jumpConsumed   = useRef(false)
+  const snapshotTimer  = useRef(0)
 
   const [sx, sy, sz] = startPosition
 
@@ -187,6 +193,23 @@ export function RobotEntity({
       jumpConsumed.current = true
     }
     if (!c.jump) jumpConsumed.current = false
+
+    // ── Snapshot broadcast (~20 Hz) ───────────────────────────────────────
+    if (onSnapshot) {
+      snapshotTimer.current += delta
+      if (snapshotTimer.current >= 0.05) {
+        snapshotTimer.current = 0
+        const t = rb.translation()
+        const r = rb.rotation()
+        const v = rb.linvel()
+        onSnapshot({
+          tick: Date.now(),
+          pos: [t.x, t.y, t.z],
+          rot: [r.x, r.y, r.z, r.w],
+          vel: [v.x, v.y, v.z],
+        })
+      }
+    }
   })
 
   return (

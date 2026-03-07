@@ -1,7 +1,9 @@
-import Fastify from 'fastify'
+import { fileURLToPath } from 'node:url'
+import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import { Server as SocketIOServer } from 'socket.io'
 import type { Server as HttpServer } from 'node:http'
+import { MatchmakingQueue } from './matchmaking.js'
 
 // ── Types (shared with client; will live in @smp/shared once Sprint 5-6 lands)
 interface PlayerInput {
@@ -13,14 +15,21 @@ interface PlayerInput {
   attack: boolean
 }
 
+// Opaque relay payloads — the server never inspects SDP or ICE bodies.
+interface WebRTCOfferPayload  { to: string; sdp: unknown }
+interface WebRTCAnswerPayload { to: string; sdp: unknown }
+interface WebRTCIcePayload    { to: string; candidate: unknown }
+
 // ── Config ────────────────────────────────────────────────────────────────────
-const PORT = Number(process.env['PORT']) || 3001
+const DEFAULT_PORT = Number(process.env['PORT']) || 3001
 const CLIENT_ORIGIN = process.env['CLIENT_URL'] ?? 'http://localhost:5173'
 
-// ── Server bootstrap ──────────────────────────────────────────────────────────
+// ── Server factory ────────────────────────────────────────────────────────────
+// Exported so integration tests can call createServer(0) for a random port.
 
-async function bootstrap(): Promise<void> {
-  const fastify = Fastify({ logger: true })
+export async function createServer(port: number = DEFAULT_PORT): Promise<FastifyInstance> {
+  // Silence the logger in tests (port 0 signals a test environment)
+  const fastify = Fastify({ logger: port !== 0 })
 
   await fastify.register(cors, { origin: CLIENT_ORIGIN })
 
@@ -30,31 +39,24 @@ async function bootstrap(): Promise<void> {
     timestamp: new Date().toISOString(),
   }))
 
-  await fastify.listen({ port: PORT, host: '0.0.0.0' })
-  fastify.log.info(`[SMP] Server listening on port ${PORT}`)
+  await fastify.listen({ port, host: '0.0.0.0' })
 
   // ── Socket.io (attach to Fastify's underlying HTTP server) ────────────────
   const io = new SocketIOServer(fastify.server as HttpServer, {
     cors: { origin: CLIENT_ORIGIN },
   })
 
-  // Matchmaking queue — players waiting for an opponent
-  const queue: string[] = []
+  const queue = new MatchmakingQueue()
 
   io.on('connection', (socket) => {
-    fastify.log.info(`[SMP] Player connected: ${socket.id}`)
-
     // ── Matchmaking ─────────────────────────────────────────────────────────
     socket.on('join_queue', () => {
-      if (queue.includes(socket.id)) return
+      const position = queue.join(socket.id)
+      socket.emit('queue_joined', { position })
 
-      queue.push(socket.id)
-      fastify.log.info(`[SMP] Queue depth: ${queue.length}`)
-      socket.emit('queue_joined', { position: queue.length })
-
-      // Pair up the first two players in the queue
-      if (queue.length >= 2) {
-        const [playerA, playerB] = queue.splice(0, 2)
+      const pair = queue.tryPair()
+      if (pair) {
+        const [playerA, playerB] = pair
         const roomId = `match::${playerA}::${playerB}`
 
         io.sockets.sockets.get(playerA)?.join(roomId)
@@ -64,14 +66,11 @@ async function bootstrap(): Promise<void> {
           roomId,
           players: [playerA, playerB],
         })
-
-        fastify.log.info(`[SMP] Match started — room: ${roomId}`)
       }
     })
 
     socket.on('leave_queue', () => {
-      const idx = queue.indexOf(socket.id)
-      if (idx !== -1) queue.splice(idx, 1)
+      queue.leave(socket.id)
     })
 
     // ── Input relay ─────────────────────────────────────────────────────────
@@ -87,15 +86,29 @@ async function bootstrap(): Promise<void> {
       socket.to(matchRoom).emit('opponent_input', input)
     })
 
+    // ── WebRTC signaling relay ───────────────────────────────────────────────
+    // The server is a dumb relay for SDP and ICE payloads — it never parses
+    // them. Each message is forwarded directly to the target socket by id.
+    // Once the DataChannel opens, all game data flows P2P; the server is idle.
+    socket.on('webrtc_offer', ({ to, sdp }: WebRTCOfferPayload) => {
+      io.to(to).emit('webrtc_offer', { from: socket.id, sdp })
+    })
+
+    socket.on('webrtc_answer', ({ to, sdp }: WebRTCAnswerPayload) => {
+      io.to(to).emit('webrtc_answer', { from: socket.id, sdp })
+    })
+
+    socket.on('webrtc_ice', ({ to, candidate }: WebRTCIcePayload) => {
+      io.to(to).emit('webrtc_ice', { from: socket.id, candidate })
+    })
+
     // ── Disconnect ──────────────────────────────────────────────────────────
-    socket.on('disconnect', (reason) => {
-      fastify.log.info(`[SMP] Player disconnected: ${socket.id} (${reason})`)
+    // Use 'disconnecting' (not 'disconnect') because socket.rooms is already
+    // cleared by the time 'disconnect' fires. 'disconnecting' fires while the
+    // socket still belongs to all its rooms, so we can notify the opponent.
+    socket.on('disconnecting', () => {
+      queue.leave(socket.id)
 
-      // Clean up queue if the player was waiting
-      const queueIdx = queue.indexOf(socket.id)
-      if (queueIdx !== -1) queue.splice(queueIdx, 1)
-
-      // Notify opponent in any active match room
       socket.rooms.forEach((room) => {
         if (!room.startsWith('match::')) return
         io.to(room).emit('opponent_disconnected', {
@@ -107,9 +120,16 @@ async function bootstrap(): Promise<void> {
       })
     })
   })
+
+  return fastify
 }
 
-bootstrap().catch((err: unknown) => {
-  console.error('[SMP] Fatal startup error:', err)
-  process.exit(1)
-})
+// ── Entry point guard ─────────────────────────────────────────────────────────
+// Only start the server when this file is run directly (not imported by tests).
+const __filename = fileURLToPath(import.meta.url)
+if (process.argv[1] === __filename) {
+  createServer().catch((err: unknown) => {
+    console.error('[SMP] Fatal startup error:', err)
+    process.exit(1)
+  })
+}
