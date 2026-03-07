@@ -28,18 +28,20 @@ npm run dev        # starts client (:5173) and server (:3001) concurrently
 ```
 ScrapeMetalProtocol/
 ├── docs/                        # PRD and PDD
-├── packages/
+├── app/
 │   ├── client/                  # React + R3F frontend
 │   │   └── src/
 │   │       ├── game/
-│   │       │   ├── GameCanvas.tsx   # R3F Canvas + Error Boundary
-│   │       │   ├── Arena.tsx        # Arena geometry + physics bodies
-│   │       │   ├── Robot.tsx        # Player-controlled robot
-│   │       │   └── useControls.ts   # Keyboard input hook
+│   │       │   ├── GameCanvas.tsx      # R3F Canvas + Error Boundary
+│   │       │   ├── Arena.tsx           # Arena geometry + physics bodies
+│   │       │   ├── Robot.tsx           # Simple single-body placeholder
+│   │       │   ├── useControls.ts      # Keyboard input hook
+│   │       │   └── robot/
+│   │       │       └── RobotEntity.tsx # Modular robot with breakable joints
 │   │       ├── store/
-│   │       │   └── gameStore.ts     # Zustand global state
+│   │       │   └── gameStore.ts        # Zustand global state
 │   │       └── types/
-│   │           └── game.ts          # All domain types
+│   │           └── game.ts             # All domain types
 │   └── server/                  # Node.js + Fastify backend
 │       └── src/
 │           └── index.ts         # HTTP API + Socket.io matchmaking
@@ -52,7 +54,7 @@ ScrapeMetalProtocol/
 | Sprint | Goal | Status |
 |---|---|---|
 | 1–2 | Core physics, controllable robot, test arena | ✅ Done |
-| 3–4 | Localized damage, modular robot joints | Pending |
+| 3–4 | Localized damage, modular robot joints | ✅ Done |
 | 5–6 | WebRTC P2P sync, matchmaking, client-side prediction | Pending |
 | 7–8 | Garage UI, MongoDB, voice chat | Pending |
 | 9+ | Programmable bots, shaders, audio, V1.0 polish | Pending |

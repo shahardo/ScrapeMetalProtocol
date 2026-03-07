@@ -1,13 +1,10 @@
-import { Component, type ErrorInfo, type ReactNode, Suspense } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import { Arena } from './Arena'
-import { Robot } from './Robot'
+import { RobotEntity } from './robot/RobotEntity'
 
 // ── React Error Boundary ──────────────────────────────────────────────────────
-// Wraps the entire Canvas so a renderer or physics crash never produces a
-// white screen. Per the PDD: "The game must never white screen or freeze the
-// browser. All systems must prioritize graceful exits."
 
 interface BoundaryState {
   hasError: boolean
@@ -25,7 +22,6 @@ class GameErrorBoundary extends Component<{ children: ReactNode }, BoundaryState
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // In production this would ship to a logging service (e.g. Sentry)
     console.error('[SMP] GameErrorBoundary caught a render fault:', error, info)
   }
 
@@ -37,9 +33,7 @@ class GameErrorBoundary extends Component<{ children: ReactNode }, BoundaryState
             <h2>⚠ SYSTEM REBOOT REQUIRED</h2>
             <p>The render engine encountered an unexpected fault. GPU memory has been freed.</p>
             <code>{this.state.errorMessage}</code>
-            <button
-              onClick={() => this.setState({ hasError: false, errorMessage: '' })}
-            >
+            <button onClick={() => this.setState({ hasError: false, errorMessage: '' })}>
               REBOOT SYSTEM
             </button>
           </div>
@@ -50,38 +44,92 @@ class GameErrorBoundary extends Component<{ children: ReactNode }, BoundaryState
   }
 }
 
+// ── CameraController ──────────────────────────────────────────────────────────
+// Orbits the camera around [0, 2, 0] using arrow keys.
+// Stored as refs so we don't trigger re-renders on every keypress.
+
+const ORBIT_SPEED = 1.2   // radians per second
+const ORBIT_RADIUS = 14
+const ORBIT_TARGET = [0, 2, 0] as const
+
+const ELEVATION_MIN = 0.05            // just above the horizon
+const ELEVATION_MAX = Math.PI / 2 - 0.05  // just below straight-up
+
+function CameraController() {
+  const { camera } = useThree()
+
+  const angle = useRef({ azimuth: 0, elevation: 0.22 })
+  const keys = useRef({ left: false, right: false, up: false, down: false })
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      switch (e.code) {
+        case 'ArrowLeft':  keys.current.left  = true; break
+        case 'ArrowRight': keys.current.right = true; break
+        case 'ArrowUp':    keys.current.up    = true; break
+        case 'ArrowDown':  keys.current.down  = true; break
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      switch (e.code) {
+        case 'ArrowLeft':  keys.current.left  = false; break
+        case 'ArrowRight': keys.current.right = false; break
+        case 'ArrowUp':    keys.current.up    = false; break
+        case 'ArrowDown':  keys.current.down  = false; break
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    const k = keys.current
+    const a = angle.current
+
+    if (k.left)  a.azimuth  -= ORBIT_SPEED * delta
+    if (k.right) a.azimuth  += ORBIT_SPEED * delta
+    if (k.up)    a.elevation = Math.min(ELEVATION_MAX, a.elevation + ORBIT_SPEED * delta)
+    if (k.down)  a.elevation = Math.max(ELEVATION_MIN, a.elevation - ORBIT_SPEED * delta)
+
+    // Spherical → cartesian
+    const x = Math.sin(a.azimuth) * Math.cos(a.elevation) * ORBIT_RADIUS
+    const y = Math.sin(a.elevation) * ORBIT_RADIUS + ORBIT_TARGET[1]
+    const z = Math.cos(a.azimuth) * Math.cos(a.elevation) * ORBIT_RADIUS
+
+    camera.position.set(x, y, z)
+    camera.lookAt(...ORBIT_TARGET)
+  })
+
+  return null
+}
+
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
-/**
- * The main R3F canvas.
- *
- * Camera is positioned along the Z axis looking back at the 2D fighting plane,
- * mimicking the 2.5D side-scrolling perspective described in the PRD.
- *
- * Physics gravity is set to -30 (higher than real world) for snappy,
- * arcade-style feel. The robot's gravityScale multiplier adds additional
- * control over individual entity feel.
- */
 export function GameCanvas() {
   return (
     <GameErrorBoundary>
       <Canvas
         shadows
         camera={{
-          position: [0, 3, 14],
+          position: [0, 5.5, 14],
           fov: 45,
           near: 0.1,
           far: 200,
         }}
-        style={{ background: '#080810', width: '100%', height: '100%' }}
+        style={{ background: '#1a2030', width: '100%', height: '100%' }}
       >
-        {/* ── Lighting ───────────────────────────────────────────────────── */}
-        <ambientLight intensity={0.3} />
+        <CameraController />
 
-        {/* Key light — main illumination from above-front */}
+        {/* ── Lighting ─────────────────────────────────────────────────── */}
+        <ambientLight intensity={0.7} />
+
         <directionalLight
           position={[4, 12, 6]}
-          intensity={1.8}
+          intensity={2.2}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-15}
@@ -90,18 +138,17 @@ export function GameCanvas() {
           shadow-camera-bottom={-4}
         />
 
-        {/* Fill light — cool blue from the opposite side */}
-        <pointLight position={[-6, 6, 4]} intensity={0.6} color="#002244" />
+        {/* Fill from opposite side — reduces harsh shadows */}
+        <pointLight position={[-8, 8, 4]} intensity={1.0} color="#3a5080" />
 
-        {/* Rim light — gives metallic robots a dramatic edge highlight */}
-        <pointLight position={[0, -1, 5]} intensity={0.4} color="#001133" />
+        {/* Warm under-light for the floor surface */}
+        <pointLight position={[0, 1, 3]} intensity={0.5} color="#806040" />
 
-        {/* ── Physics world ──────────────────────────────────────────────── */}
-        {/* Suspense required by @react-three/rapier while WASM loads */}
+        {/* ── Physics world ────────────────────────────────────────────── */}
         <Suspense fallback={null}>
           <Physics gravity={[0, -30, 0]}>
             <Arena />
-            <Robot color="#4a8aaa" startPosition={[-3, 3, 0]} />
+            <RobotEntity color="#4a8aaa" startPosition={[-3, 3, 0]} />
           </Physics>
         </Suspense>
       </Canvas>

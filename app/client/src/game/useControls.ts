@@ -8,12 +8,15 @@ export interface Controls {
 }
 
 /**
- * Tracks raw keyboard input as a mutable ref rather than React state.
+ * Tracks WASD + Space robot input as a mutable ref rather than React state.
  *
  * Why a ref and not useState: the game loop reads controls every frame
  * (60 fps). Storing them in state would schedule a re-render on every
  * keydown/keyup, flooding React's reconciler. The ref gives the frame
  * loop direct, synchronous access with zero render overhead.
+ *
+ * Arrow keys are intentionally excluded — they are consumed by CameraController
+ * for POV rotation and must not also trigger robot movement.
  */
 export function useControls(): React.RefObject<Controls> {
   const controls = useRef<Controls>({
@@ -25,21 +28,17 @@ export function useControls(): React.RefObject<Controls> {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Prevent space from scrolling the page while playing
       if (e.code === 'Space') e.preventDefault()
 
       switch (e.code) {
-        case 'ArrowLeft':
         case 'KeyA':
           controls.current.left = true
           break
-        case 'ArrowRight':
         case 'KeyD':
           controls.current.right = true
           break
-        case 'Space':
-        case 'ArrowUp':
         case 'KeyW':
+        case 'Space':
           controls.current.jump = true
           break
         case 'KeyJ':
@@ -51,17 +50,14 @@ export function useControls(): React.RefObject<Controls> {
 
     const onKeyUp = (e: KeyboardEvent) => {
       switch (e.code) {
-        case 'ArrowLeft':
         case 'KeyA':
           controls.current.left = false
           break
-        case 'ArrowRight':
         case 'KeyD':
           controls.current.right = false
           break
-        case 'Space':
-        case 'ArrowUp':
         case 'KeyW':
+        case 'Space':
           controls.current.jump = false
           break
         case 'KeyJ':

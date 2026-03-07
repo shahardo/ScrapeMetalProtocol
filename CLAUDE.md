@@ -14,14 +14,14 @@ Client runs on `:5173`, server on `:3001`.
 
 ## Architecture
 
-**Monorepo** with npm workspaces: `packages/client` and `packages/server`.
+**Monorepo** with npm workspaces: `app/client` and `app/server`.
 
-**Client** (`packages/client/src/`):
+**Client** (`app/client/src/`):
 - `game/` — R3F components and game loop logic
 - `store/gameStore.ts` — Zustand; single source of truth for match and player state
 - `types/game.ts` — all domain interfaces; import from here, never inline types
 
-**Server** (`packages/server/src/index.ts`):
+**Server** (`app/server/src/index.ts`):
 - Fastify handles REST (auth, garage saves)
 - Socket.io handles matchmaking signaling and (currently) input relay
 - WebRTC P2P data channels will handle low-latency combat sync in Sprint 5-6
@@ -65,7 +65,7 @@ Every system must fail gracefully — see PDD Section 4 for full spec:
 Don't build ahead of the current sprint without flagging it.
 
 - **Sprint 1-2 (done):** physics engine, controllable robot, test arena
-- **Sprint 3-4 (next):** `RobotEntity` component system, joint attachments, impact listeners that break parts
-- **Sprint 5-6:** Socket.io matchmaking, WebRTC DataChannels, client-side prediction
+- **Sprint 3-4 (done):** `RobotEntity` component system, joint attachments, impact listeners that break parts
+- **Sprint 5-6 (next):** Socket.io matchmaking, WebRTC DataChannels, client-side prediction
 - **Sprint 7-8:** Garage UI, MongoDB schemas, voice chat (`getUserMedia`)
 - **Sprint 9+:** Web Worker bot sandbox, shaders, audio, V1.0

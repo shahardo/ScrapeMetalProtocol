@@ -2,11 +2,11 @@
   "name": "scrap-metal-protocol",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["packages/*"],
+  "workspaces": ["app/*"],
   "scripts": {
-    "dev": "concurrently -n client,server -c cyan,yellow \"npm run dev -w packages/client\" \"npm run dev -w packages/server\"",
-    "build": "npm run build -w packages/client && npm run build -w packages/server",
-    "lint": "npm run lint -w packages/client && npm run lint -w packages/server"
+    "dev": "concurrently -n client,server -c cyan,yellow \"npm run dev -w app/client\" \"npm run dev -w app/server\"",
+    "build": "npm run build -w app/client && npm run build -w app/server",
+    "lint": "npm run lint -w app/client && npm run lint -w app/server"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

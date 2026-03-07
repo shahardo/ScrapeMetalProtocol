@@ -89,18 +89,18 @@ To ensure long-term maintainability and collaboration, all developers must adher
 
 ## **6\. Phase Implementation Plan (Technical Breakdown)**
 
-### **Sprint 1-2: Core Physics & Engine Setup (MVP Phase)**
+### **Sprint 1-2: Core Physics & Engine Setup (MVP Phase)** ✅ Done
 
-* Setup Monorepo (Frontend \+ Backend).  
-* Initialize R3F Canvas and Rapier.js physics world.  
-* Implement a basic controllable 3D box (placeholder robot) on a 2D constraint plane.  
-* Implement standard movement (walk, jump, apply impulses).
+* Setup Monorepo (Frontend \+ Backend). ✅
+* Initialize R3F Canvas and Rapier.js physics world. ✅
+* Implement a basic controllable 3D box (placeholder robot) on a 2D constraint plane. ✅
+* Implement standard movement (walk, jump, apply impulses). ✅
 
-### **Sprint 3-4: Localized Damage & Modularity**
+### **Sprint 3-4: Localized Damage & Modularity** ✅ Done
 
-* Create the RobotEntity architecture (Entity-Component system using React components).  
-* Implement joint attachments (connecting arms/legs to the chassis).  
-* Implement impact listeners: detect when impulse exceeds a threshold to break a joint and spawn a disconnected physics object.
+* Create the RobotEntity architecture (Entity-Component system using React components). ✅
+* Implement joint attachments (connecting arms/legs to the chassis). ✅
+* Implement impact listeners: detect when impulse exceeds a threshold to break a joint and spawn a disconnected physics object. ✅
 
 ### **Sprint 5-6: Netcode Foundations**
 
