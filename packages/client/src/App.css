@@ -1,0 +1,122 @@
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg: #080810;
+  --color-primary: #00ffff;
+  --color-danger: #ff4444;
+  --color-text: #c8d8e0;
+  --font-mono: 'Courier New', Courier, monospace;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+
+/* ── Game wrapper ─────────────────────────────────────────────────────────── */
+.game-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── HUD overlay ──────────────────────────────────────────────────────────── */
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-title {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--color-primary);
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+.hud-controls {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--color-text);
+  opacity: 0.45;
+  text-align: right;
+  line-height: 1.8;
+}
+
+/* ── Error boundary modal ─────────────────────────────────────────────────── */
+.error-boundary-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 8, 16, 0.92);
+  z-index: 100;
+}
+
+.error-boundary-content {
+  border: 1px solid var(--color-danger);
+  padding: 40px 48px;
+  max-width: 520px;
+  text-align: center;
+}
+
+.error-boundary-content h2 {
+  font-size: 18px;
+  letter-spacing: 0.15em;
+  color: var(--color-danger);
+  margin-bottom: 16px;
+}
+
+.error-boundary-content p {
+  font-size: 13px;
+  color: var(--color-text);
+  margin-bottom: 20px;
+  opacity: 0.75;
+}
+
+.error-boundary-content code {
+  display: block;
+  font-size: 11px;
+  color: #ff8888;
+  background: #110a0a;
+  padding: 12px;
+  margin-bottom: 24px;
+  word-break: break-word;
+  text-align: left;
+}
+
+.error-boundary-content button {
+  background: transparent;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  padding: 10px 28px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+
+.error-boundary-content button:hover {
+  background: var(--color-danger);
+  color: #000;
+}
