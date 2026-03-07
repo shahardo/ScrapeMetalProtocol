@@ -8,7 +8,7 @@ export function App() {
       <div className="hud">
         <span className="hud-title">Scrap Metal Protocol — v0.1 MVP</span>
         <span className="hud-controls">
-          WASD — Move / Jump&nbsp;&nbsp;|&nbsp;&nbsp;↑↓←→ — Rotate camera
+          W/S — Walk&nbsp;&nbsp;|&nbsp;&nbsp;A/D — Rotate&nbsp;&nbsp;|&nbsp;&nbsp;Space — Jump&nbsp;&nbsp;|&nbsp;&nbsp;↑↓←→ — Camera
         </span>
       </div>
 

@@ -1,25 +1,28 @@
 import { useEffect, useRef } from 'react'
 
 export interface Controls {
-  left: boolean
-  right: boolean
-  jump: boolean
-  attack: boolean
+  forward: boolean   // W — walk forward
+  backward: boolean  // S — walk backward
+  left: boolean      // A — rotate left
+  right: boolean     // D — rotate right
+  jump: boolean      // Space — jump
+  attack: boolean    // J / Z — attack
 }
 
 /**
- * Tracks WASD + Space robot input as a mutable ref rather than React state.
+ * Tracks WASD + Space input as a mutable ref rather than React state.
  *
  * Why a ref and not useState: the game loop reads controls every frame
  * (60 fps). Storing them in state would schedule a re-render on every
  * keydown/keyup, flooding React's reconciler. The ref gives the frame
  * loop direct, synchronous access with zero render overhead.
  *
- * Arrow keys are intentionally excluded — they are consumed by CameraController
- * for POV rotation and must not also trigger robot movement.
+ * Arrow keys are intentionally excluded — they are consumed by CameraController.
  */
 export function useControls(): React.RefObject<Controls> {
   const controls = useRef<Controls>({
+    forward: false,
+    backward: false,
     left: false,
     right: false,
     jump: false,
@@ -29,41 +32,26 @@ export function useControls(): React.RefObject<Controls> {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') e.preventDefault()
-
       switch (e.code) {
-        case 'KeyA':
-          controls.current.left = true
-          break
-        case 'KeyD':
-          controls.current.right = true
-          break
-        case 'KeyW':
-        case 'Space':
-          controls.current.jump = true
-          break
+        case 'KeyW': controls.current.forward  = true;  break
+        case 'KeyS': controls.current.backward = true;  break
+        case 'KeyA': controls.current.left     = true;  break
+        case 'KeyD': controls.current.right    = true;  break
+        case 'Space': controls.current.jump    = true;  break
         case 'KeyJ':
-        case 'KeyZ':
-          controls.current.attack = true
-          break
+        case 'KeyZ': controls.current.attack   = true;  break
       }
     }
 
     const onKeyUp = (e: KeyboardEvent) => {
       switch (e.code) {
-        case 'KeyA':
-          controls.current.left = false
-          break
-        case 'KeyD':
-          controls.current.right = false
-          break
-        case 'KeyW':
-        case 'Space':
-          controls.current.jump = false
-          break
+        case 'KeyW': controls.current.forward  = false; break
+        case 'KeyS': controls.current.backward = false; break
+        case 'KeyA': controls.current.left     = false; break
+        case 'KeyD': controls.current.right    = false; break
+        case 'Space': controls.current.jump    = false; break
         case 'KeyJ':
-        case 'KeyZ':
-          controls.current.attack = false
-          break
+        case 'KeyZ': controls.current.attack   = false; break
       }
     }
 

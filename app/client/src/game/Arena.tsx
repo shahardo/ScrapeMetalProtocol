@@ -10,7 +10,7 @@ export function Arena() {
       {/* ── Main floor ─────────────────────────────────────────────────── */}
       <RigidBody type="fixed" name="ground" friction={1} restitution={0}>
         <mesh receiveShadow position={[0, -0.5, 0]}>
-          <boxGeometry args={[24, 1, 4]} />
+          <boxGeometry args={[24, 1, 20]} />
           <meshStandardMaterial color="#5c5248" metalness={0.2} roughness={0.85} />
         </mesh>
       </RigidBody>
@@ -71,12 +71,22 @@ export function Arena() {
       {/* ── Arena boundary walls (invisible) ─────────────────────────────── */}
       <RigidBody type="fixed" name="wall-left">
         <mesh position={[-12, 4, 0]} visible={false}>
-          <boxGeometry args={[0.5, 16, 4]} />
+          <boxGeometry args={[0.5, 16, 20]} />
         </mesh>
       </RigidBody>
       <RigidBody type="fixed" name="wall-right">
         <mesh position={[12, 4, 0]} visible={false}>
-          <boxGeometry args={[0.5, 16, 4]} />
+          <boxGeometry args={[0.5, 16, 20]} />
+        </mesh>
+      </RigidBody>
+      <RigidBody type="fixed" name="wall-front">
+        <mesh position={[0, 4, 10]} visible={false}>
+          <boxGeometry args={[24, 16, 0.5]} />
+        </mesh>
+      </RigidBody>
+      <RigidBody type="fixed" name="wall-back">
+        <mesh position={[0, 4, -10]} visible={false}>
+          <boxGeometry args={[24, 16, 0.5]} />
         </mesh>
       </RigidBody>
 
