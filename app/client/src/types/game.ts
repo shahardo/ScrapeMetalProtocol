@@ -60,6 +60,15 @@ export interface RobotSnapshot {
   vel: [number, number, number]
 }
 
+/** Saved robot as returned by the Garage REST API (includes MongoDB metadata). */
+export interface GarageRobot extends RobotConfig {
+  /** MongoDB ObjectId string */
+  _id: string
+  userId: string
+  createdAt: string
+  updatedAt: string
+}
+
 /** Damage event emitted when a joint breaks or a part is struck. */
 export interface DamageEvent {
   targetPlayerId: string

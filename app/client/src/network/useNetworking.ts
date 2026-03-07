@@ -3,6 +3,8 @@ import { io, type Socket } from 'socket.io-client'
 import type { RobotSnapshot } from '../types/game'
 
 export type NetworkStatus = 'disconnected' | 'queued' | 'connecting' | 'matched'
+/** idle = not in a match; muted/active = in match; unavailable = mic denied */
+export type MicStatus    = 'idle' | 'muted' | 'active' | 'unavailable'
 
 const SERVER_URL = 'http://localhost:3001'
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -29,11 +31,14 @@ export interface NetworkingAPI {
   leaveQueue: () => void
   sendSnapshot: (snap: RobotSnapshot) => void
   latestRemoteSnapshot: React.RefObject<RobotSnapshot | null>
+  micStatus: MicStatus
+  toggleMic: () => void
 }
 
 export function useNetworking(): NetworkingAPI {
-  const [status, setStatus] = useState<NetworkStatus>('disconnected')
-  const [isHost, setIsHost] = useState(false)
+  const [status,    setStatus]    = useState<NetworkStatus>('disconnected')
+  const [isHost,    setIsHost]    = useState(false)
+  const [micStatus, setMicStatus] = useState<MicStatus>('idle')
 
   const socketRef    = useRef<Socket | null>(null)
   const pcRef        = useRef<RTCPeerConnection | null>(null)
@@ -41,6 +46,23 @@ export function useNetworking(): NetworkingAPI {
   const myIdRef      = useRef('')
   const opponentRef  = useRef('')
   const latestRemoteSnapshot = useRef<RobotSnapshot | null>(null)
+
+  // Voice chat refs
+  const micStreamRef   = useRef<MediaStream | null>(null)
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  const cleanupVoice = useCallback(() => {
+    micStreamRef.current?.getTracks().forEach((t) => t.stop())
+    micStreamRef.current = null
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.pause()
+      remoteAudioRef.current.srcObject = null
+      remoteAudioRef.current = null
+    }
+    setMicStatus('idle')
+  }, [])
 
   // ── DataChannel setup (shared by host and guest paths) ──────────────────────
   const setupChannel = useCallback((dc: RTCDataChannel) => {
@@ -52,16 +74,45 @@ export function useNetworking(): NetworkingAPI {
         // malformed snapshot — discard silently
       }
     }
-    dc.onopen  = () => { setStatus('matched') }
-    dc.onclose = () => { setStatus('disconnected') }
-  }, [])
+    dc.onopen = () => {
+      setStatus('matched')
+      setMicStatus('muted')
+
+      // Set up renegotiation AFTER the initial DC negotiation completes.
+      // This handler fires when the user later adds a mic track.
+      const pc     = pcRef.current
+      const socket = socketRef.current
+      if (!pc || !socket) return
+
+      pc.onnegotiationneeded = async () => {
+        if (pc.signalingState !== 'stable') return // avoid mid-negotiation races
+        try {
+          await pc.setLocalDescription(await pc.createOffer())
+          socket.emit('webrtc_offer', { to: opponentRef.current, sdp: pc.localDescription })
+        } catch {
+          // Non-fatal: renegotiation can fail if the peer connection closed
+        }
+      }
+
+      // Play remote audio (opponent's mic) when a track arrives
+      pc.ontrack = (e) => {
+        const audio = new Audio()
+        audio.srcObject = e.streams[0] ?? null
+        audio.autoplay  = true
+        remoteAudioRef.current = audio
+      }
+    }
+    dc.onclose = () => {
+      cleanupVoice()
+      setStatus('disconnected')
+    }
+  }, [cleanupVoice])
 
   // ── Peer connection factory ──────────────────────────────────────────────────
   const makePeerConnection = useCallback((socket: Socket): RTCPeerConnection => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     pcRef.current = pc
 
-    // Relay our ICE candidates to the opponent via the signaling server
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
         socket.emit('webrtc_ice', { to: opponentRef.current, candidate: candidate.toJSON() })
@@ -93,9 +144,7 @@ export function useNetworking(): NetworkingAPI {
       const pc = makePeerConnection(socket)
 
       if (host) {
-        // Host opens the DataChannel and initiates the offer
         setupChannel(pc.createDataChannel('snapshots', DC_INIT))
-
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         socket.emit('webrtc_offer', { to: opponentRef.current, sdp: pc.localDescription })
@@ -123,25 +172,27 @@ export function useNetworking(): NetworkingAPI {
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate))
       } catch {
-        // stale candidate after connection — safe to ignore
+        // stale candidate — safe to ignore
       }
     })
 
     socket.on('opponent_disconnected', () => {
       pcRef.current?.close()
-      pcRef.current = null
+      pcRef.current  = null
       channelRef.current = null
       latestRemoteSnapshot.current = null
+      cleanupVoice()
       setStatus('disconnected')
     })
 
     socket.connect()
 
     return () => {
+      cleanupVoice()
       pcRef.current?.close()
       socket.disconnect()
     }
-  }, [makePeerConnection, setupChannel])
+  }, [makePeerConnection, setupChannel, cleanupVoice])
 
   // ── Public API ───────────────────────────────────────────────────────────────
   const joinQueue = useCallback(() => {
@@ -160,5 +211,45 @@ export function useNetworking(): NetworkingAPI {
     ch.send(JSON.stringify(snap))
   }, [])
 
-  return { status, isHost, joinQueue, leaveQueue, sendSnapshot, latestRemoteSnapshot }
+  /**
+   * Activate or mute the local microphone.
+   *
+   * First call: requests getUserMedia; on denial sets status to 'unavailable'
+   * and the match continues silently (per PDD error handling spec).
+   * Subsequent calls toggle the track's enabled flag — no renegotiation needed.
+   */
+  const toggleMic = useCallback(async () => {
+    const pc = pcRef.current
+    if (!pc) return
+
+    // Already have a stream — just toggle the track's enabled flag
+    if (micStreamRef.current) {
+      const tracks = micStreamRef.current.getAudioTracks()
+      const nowEnabled = !tracks[0]?.enabled
+      tracks.forEach((t) => { t.enabled = nowEnabled })
+      setMicStatus(nowEnabled ? 'active' : 'muted')
+      return
+    }
+
+    // First activation: request mic access
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      micStreamRef.current = stream
+      for (const track of stream.getAudioTracks()) {
+        pc.addTrack(track, stream)
+      }
+      setMicStatus('active')
+      // pc.onnegotiationneeded fires automatically to renegotiate with the opponent
+    } catch {
+      // Mic denied or unavailable — match continues without voice chat
+      setMicStatus('unavailable')
+    }
+  }, [])
+
+  return {
+    status, isHost,
+    joinQueue, leaveQueue,
+    sendSnapshot, latestRemoteSnapshot,
+    micStatus, toggleMic,
+  }
 }

@@ -67,5 +67,5 @@ Don't build ahead of the current sprint without flagging it.
 - **Sprint 1-2 (done):** physics engine, controllable robot, test arena
 - **Sprint 3-4 (done):** `RobotEntity` component system, joint attachments, impact listeners that break parts
 - **Sprint 5-6 (done):** Socket.io matchmaking, WebRTC DataChannels, 20 Hz snapshot broadcast
-- **Sprint 7-8 (next):** Garage UI, MongoDB schemas, voice chat (`getUserMedia`)
-- **Sprint 9+:** Web Worker bot sandbox, shaders, audio, V1.0
+- **Sprint 7-8 (done):** Garage UI, MongoDB schemas, voice chat (`getUserMedia`)
+- **Sprint 9+ (next):** Web Worker bot sandbox, shaders, audio, V1.0

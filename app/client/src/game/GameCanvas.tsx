@@ -111,11 +111,32 @@ function CameraController() {
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
+// Mic status label map
+const MIC_LABEL: Record<string, string> = {
+  muted: '🎤 MIC OFF',
+  active: '🎤 LIVE',
+  unavailable: '🎤 UNAVAILABLE',
+}
+
 export function GameCanvas() {
-  const { status, joinQueue, leaveQueue, sendSnapshot, latestRemoteSnapshot } = useNetworking()
+  const {
+    status, joinQueue, leaveQueue, sendSnapshot, latestRemoteSnapshot,
+    micStatus, toggleMic,
+  } = useNetworking()
 
   return (
     <>
+      {/* ── Mic indicator (only during a live match) ──────────────────────── */}
+      {status === 'matched' && micStatus !== 'idle' && (
+        <button
+          className={`mic-btn mic-btn--${micStatus}`}
+          onClick={() => void toggleMic()}
+          title={micStatus === 'unavailable' ? 'Mic access denied' : 'Toggle microphone'}
+        >
+          {MIC_LABEL[micStatus] ?? '🎤'}
+        </button>
+      )}
+
       {/* ── Matchmaking overlay (visible until P2P channel is open) ───────── */}
       {status !== 'matched' && (
         <div className="matchmaking-overlay">
@@ -148,16 +169,16 @@ export function GameCanvas() {
             near: 0.1,
             far: 200,
           }}
-          style={{ background: '#1a2030', width: '100%', height: '100%' }}
+          style={{ background: '#2a3348', width: '100%', height: '100%' }}
         >
           <CameraController />
 
           {/* ── Lighting ─────────────────────────────────────────────────── */}
-          <ambientLight intensity={0.7} />
+          <ambientLight intensity={1.2} />
 
           <directionalLight
             position={[4, 12, 6]}
-            intensity={2.2}
+            intensity={2.8}
             castShadow
             shadow-mapSize={[2048, 2048]}
             shadow-camera-left={-15}
@@ -167,10 +188,10 @@ export function GameCanvas() {
           />
 
           {/* Fill from opposite side — reduces harsh shadows */}
-          <pointLight position={[-8, 8, 4]} intensity={1.0} color="#3a5080" />
+          <pointLight position={[-8, 8, 4]} intensity={1.6} color="#5070a8" />
 
           {/* Warm under-light for the floor surface */}
-          <pointLight position={[0, 1, 3]} intensity={0.5} color="#806040" />
+          <pointLight position={[0, 1, 3]} intensity={0.9} color="#a07850" />
 
           {/* ── Physics world ────────────────────────────────────────────── */}
           <Suspense fallback={null}>

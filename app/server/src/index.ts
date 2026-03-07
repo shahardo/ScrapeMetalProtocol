@@ -3,7 +3,9 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import { Server as SocketIOServer } from 'socket.io'
 import type { Server as HttpServer } from 'node:http'
+import mongoose from 'mongoose'
 import { MatchmakingQueue } from './matchmaking.js'
+import { garageRoutes } from './routes/garage.js'
 
 // ── Types (shared with client; will live in @smp/shared once Sprint 5-6 lands)
 interface PlayerInput {
@@ -23,6 +25,7 @@ interface WebRTCIcePayload    { to: string; candidate: unknown }
 // ── Config ────────────────────────────────────────────────────────────────────
 const DEFAULT_PORT = Number(process.env['PORT']) || 3001
 const CLIENT_ORIGIN = process.env['CLIENT_URL'] ?? 'http://localhost:5173'
+const MONGO_URI     = process.env['MONGO_URI']  ?? 'mongodb://127.0.0.1:27017/ScrapMetalDB'
 
 // ── Server factory ────────────────────────────────────────────────────────────
 // Exported so integration tests can call createServer(0) for a random port.
@@ -33,11 +36,24 @@ export async function createServer(port: number = DEFAULT_PORT): Promise<Fastify
 
   await fastify.register(cors, { origin: CLIENT_ORIGIN })
 
-  // ── REST endpoints (Sprint 7-8 will expand with Garage save/load) ─────────
+  // ── MongoDB (non-blocking — garage endpoints return 503 if unavailable) ────
+  // Tests skip this by passing a pre-connected mongoose instance via env.
+  if (process.env['SKIP_MONGO'] !== '1') {
+    mongoose.connect(MONGO_URI).then(() => {
+      fastify.log.info('[SMP] MongoDB connected')
+    }).catch((err: unknown) => {
+      fastify.log.warn(`[SMP] MongoDB unavailable — garage features disabled: ${String(err)}`)
+    })
+  }
+
+  // ── REST endpoints ────────────────────────────────────────────────────────
   fastify.get('/health', async () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
   }))
+
+  // Garage save/load routes (Sprint 7-8)
+  await fastify.register(garageRoutes)
 
   await fastify.listen({ port, host: '0.0.0.0' })
 
@@ -74,15 +90,9 @@ export async function createServer(port: number = DEFAULT_PORT): Promise<Fastify
     })
 
     // ── Input relay ─────────────────────────────────────────────────────────
-    // Sprint 1-2 (MVP): relay client input to the opponent. No server-side
-    // physics yet. Sprint 5-6 will replace this with a server-authoritative
-    // tick loop and reconciliation.
     socket.on('player_input', (input: PlayerInput) => {
-      // Find the room this socket is in (if any match room)
       const matchRoom = [...socket.rooms].find((r) => r.startsWith('match::'))
       if (!matchRoom) return
-
-      // Relay to everyone else in the room (the opponent)
       socket.to(matchRoom).emit('opponent_input', input)
     })
 
@@ -113,7 +123,6 @@ export async function createServer(port: number = DEFAULT_PORT): Promise<Fastify
         if (!room.startsWith('match::')) return
         io.to(room).emit('opponent_disconnected', {
           playerId: socket.id,
-          // Friendly, in-universe message per PDD error handling guidelines
           message:
             'Pilot signal lost. Substituting emergency AI protocol. Standby...',
         })

@@ -11,7 +11,7 @@ export function Arena() {
       <RigidBody type="fixed" name="ground" friction={1} restitution={0}>
         <mesh receiveShadow position={[0, -0.5, 0]}>
           <boxGeometry args={[24, 1, 20]} />
-          <meshStandardMaterial color="#5c5248" metalness={0.2} roughness={0.85} />
+          <meshStandardMaterial color="#7a6e62" metalness={0.25} roughness={0.75} />
         </mesh>
       </RigidBody>
 
@@ -46,7 +46,7 @@ export function Arena() {
       <RigidBody type="fixed" name="platform-left" friction={1} restitution={0}>
         <mesh receiveShadow position={[-5, 2, 0]}>
           <boxGeometry args={[4, 0.3, 4]} />
-          <meshStandardMaterial color="#4a5060" metalness={0.4} roughness={0.7} />
+          <meshStandardMaterial color="#6a7080" metalness={0.45} roughness={0.6} />
         </mesh>
       </RigidBody>
       {/* Platform left surface stripe */}
@@ -59,7 +59,7 @@ export function Arena() {
       <RigidBody type="fixed" name="platform-right" friction={1} restitution={0}>
         <mesh receiveShadow position={[5, 3.5, 0]}>
           <boxGeometry args={[4, 0.3, 4]} />
-          <meshStandardMaterial color="#4a5060" metalness={0.4} roughness={0.7} />
+          <meshStandardMaterial color="#6a7080" metalness={0.45} roughness={0.6} />
         </mesh>
       </RigidBody>
       {/* Platform right surface stripe */}
@@ -93,16 +93,16 @@ export function Arena() {
       {/* ── Background wall ──────────────────────────────────────────────── */}
       <mesh position={[0, 5, -3]} receiveShadow>
         <planeGeometry args={[32, 18]} />
-        <meshStandardMaterial color="#2e3a4e" roughness={1} />
+        <meshStandardMaterial color="#4a5a72" roughness={1} />
       </mesh>
       {/* Background accent panels */}
       <mesh position={[-8, 5, -2.9]}>
         <planeGeometry args={[6, 12]} />
-        <meshStandardMaterial color="#263040" roughness={1} />
+        <meshStandardMaterial color="#3d4e62" roughness={1} />
       </mesh>
       <mesh position={[8, 5, -2.9]}>
         <planeGeometry args={[6, 12]} />
-        <meshStandardMaterial color="#263040" roughness={1} />
+        <meshStandardMaterial color="#3d4e62" roughness={1} />
       </mesh>
     </>
   )

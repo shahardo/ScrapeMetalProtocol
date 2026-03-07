@@ -109,11 +109,11 @@ To ensure long-term maintainability and collaboration, all developers must adher
 * Establish WebRTC DataChannels between two peers. ✅
 * Send position/rotation arrays at a fixed tick rate (e.g., 20 ticks per second). ✅
 
-### **Sprint 7-8: Garage, DB, and Voice Chat**
+### **Sprint 7-8: Garage, DB, and Voice Chat** ✅ Done
 
-* Setup MongoDB schemas for User and Robot configs.  
-* Build the React UI for the Garage (saving configs to the DB).  
-* Implement navigator.mediaDevices.getUserMedia for Voice Chat over WebRTC Media Streams, including strict try-catch handling for denied microphone permissions.
+* Setup MongoDB schemas for User and Robot configs. ✅
+* Build the React UI for the Garage (saving configs to the DB). ✅
+* Implement navigator.mediaDevices.getUserMedia for Voice Chat over WebRTC Media Streams, including strict try-catch handling for denied microphone permissions. ✅
 
 ### **Sprint 9+: Polish & Programmable Bots**
 
