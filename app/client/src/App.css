@@ -409,3 +409,96 @@ html, body, #root {
   opacity: 0.4;
   white-space: nowrap;
 }
+
+/* ── Weapon HUD ───────────────────────────────────────────────────────────── */
+.weapon-hud {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.weapon-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weapon-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--color-text);
+  opacity: 0.55;
+  text-transform: uppercase;
+  width: 42px;
+  text-align: right;
+}
+
+.weapon-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.weapon-pip {
+  width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  transition: background 0.15s;
+}
+
+.weapon-pip--gun {
+  color: #ffaa44;
+}
+
+.weapon-pip--gun.filled {
+  background: #ffaa44;
+  box-shadow: 0 0 4px #ffaa44;
+}
+
+.weapon-pip--laser {
+  color: #ff3344;
+}
+
+.weapon-pip--laser.filled {
+  background: #ff3344;
+  box-shadow: 0 0 4px #ff3344;
+}
+
+.weapon-cooldown {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--color-text);
+  opacity: 0.35;
+  width: 36px;
+  text-align: left;
+}
+
+/* ── Score HUD (bottom-left) ──────────────────────────────────────────────── */
+.score-hud {
+  position: absolute;
+  bottom: 10px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.score-counter {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--color-primary);
+  text-shadow: 0 0 12px var(--color-primary);
+}
+
+.damage-counter {
+  font-size: 20px;
+  color: var(--color-primary);
+  opacity: 0.7;
+}

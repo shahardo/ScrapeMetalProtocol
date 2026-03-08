@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useGameStore } from '../src/store/gameStore'
+import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES } from '../src/store/gameStore'
 import type { RobotPart } from '../src/types/game'
 
 // Zustand stores are module-level singletons. Reset to a clean baseline
 // before each test so state doesn't bleed across cases.
 beforeEach(() => {
-  useGameStore.setState({ playerParts: [] })
+  useGameStore.setState({
+    playerParts: [],
+    score: 0,
+    damageDealt: 0,
+    gunAmmo: GUN_MAX_AMMO,
+    laserCharges: LASER_MAX_CHARGES,
+  })
 })
 
 const makePart = (overrides: Partial<RobotPart> = {}): RobotPart => ({
@@ -75,5 +81,112 @@ describe('damagePlayerPart', () => {
     const after = useGameStore.getState().playerParts
     // Array reference must change; Zustand state is immutable.
     expect(after).not.toBe(before)
+  })
+})
+
+// ── addScore ──────────────────────────────────────────────────────────────────
+
+describe('addScore', () => {
+  it('increases score by the given amount', () => {
+    useGameStore.getState().addScore(5)
+    expect(useGameStore.getState().score).toBe(5)
+  })
+
+  it('accumulates across multiple calls', () => {
+    useGameStore.getState().addScore(1)
+    useGameStore.getState().addScore(2)
+    useGameStore.getState().addScore(1)
+    expect(useGameStore.getState().score).toBe(4)
+  })
+
+  it('adds to a non-zero starting score', () => {
+    useGameStore.setState({ score: 10 })
+    useGameStore.getState().addScore(3)
+    expect(useGameStore.getState().score).toBe(13)
+  })
+
+  it('does not modify damageDealt', () => {
+    useGameStore.setState({ damageDealt: 50 })
+    useGameStore.getState().addScore(99)
+    expect(useGameStore.getState().damageDealt).toBe(50)
+  })
+})
+
+// ── addDamage ─────────────────────────────────────────────────────────────────
+
+describe('addDamage', () => {
+  it('increases damageDealt by the given amount', () => {
+    useGameStore.getState().addDamage(25)
+    expect(useGameStore.getState().damageDealt).toBe(25)
+  })
+
+  it('accumulates across multiple hits', () => {
+    useGameStore.getState().addDamage(25)  // gun hit
+    useGameStore.getState().addDamage(40)  // laser hit
+    expect(useGameStore.getState().damageDealt).toBe(65)
+  })
+
+  it('adds to a non-zero starting total', () => {
+    useGameStore.setState({ damageDealt: 100 })
+    useGameStore.getState().addDamage(40)
+    expect(useGameStore.getState().damageDealt).toBe(140)
+  })
+
+  it('does not modify score', () => {
+    useGameStore.setState({ score: 7 })
+    useGameStore.getState().addDamage(999)
+    expect(useGameStore.getState().score).toBe(7)
+  })
+})
+
+// ── setGunAmmo ────────────────────────────────────────────────────────────────
+
+describe('setGunAmmo', () => {
+  it('sets gun ammo to the exact value', () => {
+    useGameStore.getState().setGunAmmo(7)
+    expect(useGameStore.getState().gunAmmo).toBe(7)
+  })
+
+  it('accepts zero (empty magazine)', () => {
+    useGameStore.getState().setGunAmmo(0)
+    expect(useGameStore.getState().gunAmmo).toBe(0)
+  })
+
+  it('accepts the max value', () => {
+    useGameStore.setState({ gunAmmo: 0 })
+    useGameStore.getState().setGunAmmo(GUN_MAX_AMMO)
+    expect(useGameStore.getState().gunAmmo).toBe(GUN_MAX_AMMO)
+  })
+
+  it('does not modify laserCharges', () => {
+    useGameStore.setState({ laserCharges: 3 })
+    useGameStore.getState().setGunAmmo(5)
+    expect(useGameStore.getState().laserCharges).toBe(3)
+  })
+})
+
+// ── setLaserCharges ───────────────────────────────────────────────────────────
+
+describe('setLaserCharges', () => {
+  it('sets laser charges to the exact value', () => {
+    useGameStore.getState().setLaserCharges(2)
+    expect(useGameStore.getState().laserCharges).toBe(2)
+  })
+
+  it('accepts zero (depleted)', () => {
+    useGameStore.getState().setLaserCharges(0)
+    expect(useGameStore.getState().laserCharges).toBe(0)
+  })
+
+  it('accepts the max value', () => {
+    useGameStore.setState({ laserCharges: 0 })
+    useGameStore.getState().setLaserCharges(LASER_MAX_CHARGES)
+    expect(useGameStore.getState().laserCharges).toBe(LASER_MAX_CHARGES)
+  })
+
+  it('does not modify gunAmmo', () => {
+    useGameStore.setState({ gunAmmo: 9 })
+    useGameStore.getState().setLaserCharges(1)
+    expect(useGameStore.getState().gunAmmo).toBe(9)
   })
 })

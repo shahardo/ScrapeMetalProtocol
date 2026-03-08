@@ -7,6 +7,7 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier'
 import { useControls } from '../useControls'
+import { WeaponSystem, type WeaponEvent } from '../weapons/WeaponSystem'
 import type { RobotSnapshot } from '../../types/game'
 
 // ── Movement constants ────────────────────────────────────────────────────────
@@ -158,10 +159,12 @@ export function RobotEntity({
   const chassisRef = useRef<RapierRigidBody>(null)
   const controls   = useControls()
 
-  const facingAngle    = useRef(0)
-  const groundContacts = useRef(0)
-  const jumpConsumed   = useRef(false)
-  const snapshotTimer  = useRef(0)
+  const facingAngle          = useRef(0)
+  const groundContacts       = useRef(0)
+  const jumpConsumed         = useRef(false)
+  const snapshotTimer        = useRef(0)
+  // Stores the last weapon fired this snapshot window; cleared after transmission.
+  const pendingWeaponEvent   = useRef<WeaponEvent | null>(null)
 
   const [sx, sy, sz] = startPosition
 
@@ -202,12 +205,17 @@ export function RobotEntity({
         const t = rb.translation()
         const r = rb.rotation()
         const v = rb.linvel()
-        onSnapshot({
+        const snap: RobotSnapshot = {
           tick: Date.now(),
           pos: [t.x, t.y, t.z],
           rot: [r.x, r.y, r.z, r.w],
           vel: [v.x, v.y, v.z],
-        })
+        }
+        if (pendingWeaponEvent.current) {
+          snap.weaponFired = pendingWeaponEvent.current
+          pendingWeaponEvent.current = null
+        }
+        onSnapshot(snap)
       }
     }
   })
@@ -296,6 +304,14 @@ export function RobotEntity({
           <meshStandardMaterial color={color} metalness={0.7} roughness={0.4} />
         </mesh>
       </PartWithJoint>
+
+      {/* ── Weapons ──────────────────────────────────────────────────────── */}
+      <WeaponSystem
+        chassisRef={chassisRef}
+        facingAngleRef={facingAngle}
+        controls={controls}
+        onWeaponFired={(event) => { pendingWeaponEvent.current = event }}
+      />
     </>
   )
 }

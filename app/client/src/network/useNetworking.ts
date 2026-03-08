@@ -31,6 +31,10 @@ export interface NetworkingAPI {
   leaveQueue: () => void
   sendSnapshot: (snap: RobotSnapshot) => void
   latestRemoteSnapshot: React.RefObject<RobotSnapshot | null>
+  /** Holds the most recent weapon-fire event from the remote player.
+   *  Set by the network layer; cleared by the consumer (RemoteRobotEntity)
+   *  after reading, so it is never overwritten by a subsequent position snapshot. */
+  pendingRemoteWeaponEvent: React.MutableRefObject<NonNullable<RobotSnapshot['weaponFired']> | null>
   micStatus: MicStatus
   toggleMic: () => void
 }
@@ -45,7 +49,8 @@ export function useNetworking(): NetworkingAPI {
   const channelRef   = useRef<RTCDataChannel | null>(null)
   const myIdRef      = useRef('')
   const opponentRef  = useRef('')
-  const latestRemoteSnapshot = useRef<RobotSnapshot | null>(null)
+  const latestRemoteSnapshot      = useRef<RobotSnapshot | null>(null)
+  const pendingRemoteWeaponEvent  = useRef<NonNullable<RobotSnapshot['weaponFired']> | null>(null)
 
   // Voice chat refs
   const micStreamRef   = useRef<MediaStream | null>(null)
@@ -69,7 +74,13 @@ export function useNetworking(): NetworkingAPI {
     channelRef.current = dc
     dc.onmessage = (e: MessageEvent<string>) => {
       try {
-        latestRemoteSnapshot.current = JSON.parse(e.data) as RobotSnapshot
+        const snap = JSON.parse(e.data) as RobotSnapshot
+        // Store weapon events in a dedicated ref so they survive subsequent
+        // position-only snapshots arriving before RemoteRobotEntity reads them.
+        if (snap.weaponFired) {
+          pendingRemoteWeaponEvent.current = snap.weaponFired
+        }
+        latestRemoteSnapshot.current = snap
       } catch {
         // malformed snapshot — discard silently
       }
@@ -181,6 +192,7 @@ export function useNetworking(): NetworkingAPI {
       pcRef.current  = null
       channelRef.current = null
       latestRemoteSnapshot.current = null
+      pendingRemoteWeaponEvent.current = null
       cleanupVoice()
       setStatus('disconnected')
     })
@@ -249,7 +261,7 @@ export function useNetworking(): NetworkingAPI {
   return {
     status, isHost,
     joinQueue, leaveQueue,
-    sendSnapshot, latestRemoteSnapshot,
+    sendSnapshot, latestRemoteSnapshot, pendingRemoteWeaponEvent,
     micStatus, toggleMic,
   }
 }

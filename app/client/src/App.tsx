@@ -26,7 +26,7 @@ export function App() {
           </button>
         </div>
         <span className="hud-controls">
-          W/S — Walk&nbsp;&nbsp;|&nbsp;&nbsp;A/D — Rotate&nbsp;&nbsp;|&nbsp;&nbsp;Space — Jump&nbsp;&nbsp;|&nbsp;&nbsp;↑↓←→ — Camera
+          W/S — Walk&nbsp;&nbsp;|&nbsp;&nbsp;A/D — Rotate&nbsp;&nbsp;|&nbsp;&nbsp;Space — Jump&nbsp;&nbsp;|&nbsp;&nbsp;↑↓←→ — Camera&nbsp;&nbsp;|&nbsp;&nbsp;F — Gun&nbsp;&nbsp;|&nbsp;&nbsp;L — Laser
         </span>
       </div>
 

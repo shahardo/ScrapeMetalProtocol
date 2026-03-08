@@ -10,6 +10,9 @@ export type PartType =
   | 'leg-right'
   | 'weapon'
 
+/** Weapon types available to robots. */
+export type WeaponType = 'gun' | 'laser'
+
 /** A single modular component that makes up a robot. */
 export interface RobotPart {
   id: string
@@ -58,6 +61,14 @@ export interface RobotSnapshot {
   /** Quaternion [x, y, z, w] */
   rot: [number, number, number, number]
   vel: [number, number, number]
+  /** Set only on the tick a weapon fires; absent otherwise. */
+  weaponFired?: {
+    type: WeaponType
+    origin: [number, number, number]
+    dir:    [number, number, number]
+    /** Laser only: actual raycast hit distance so the opponent renders the beam at the correct length. */
+    dist?: number
+  }
 }
 
 /** Saved robot as returned by the Garage REST API (includes MongoDB metadata). */

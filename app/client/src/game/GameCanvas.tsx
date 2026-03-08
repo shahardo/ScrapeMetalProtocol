@@ -5,6 +5,7 @@ import { Arena } from './Arena'
 import { RobotEntity } from './robot/RobotEntity'
 import { RemoteRobotEntity } from './RemoteRobotEntity'
 import { useNetworking } from '../network/useNetworking'
+import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES } from '../store/gameStore'
 
 // ── React Error Boundary ──────────────────────────────────────────────────────
 
@@ -109,6 +110,52 @@ function CameraController() {
   return null
 }
 
+// ── WeaponHUD ─────────────────────────────────────────────────────────────────
+
+function ScoreHUD() {
+  const { score, damageDealt } = useGameStore()
+  return (
+    <div className="score-hud">
+      <div className="score-counter">SCORE {score}</div>
+      {damageDealt > 0 && <div className="damage-counter">DMG {damageDealt}</div>}
+    </div>
+  )
+}
+
+function WeaponHUD() {
+  const { gunAmmo, laserCharges } = useGameStore()
+
+  return (
+    <div className="weapon-hud">
+      {/* Gun ammo pips */}
+      <div className="weapon-row">
+        <span className="weapon-label">GUN</span>
+        <div className="weapon-pips">
+          {Array.from({ length: GUN_MAX_AMMO }, (_, i) => (
+            <div
+              key={i}
+              className={`weapon-pip weapon-pip--gun${i < gunAmmo ? ' filled' : ''}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Laser charge pips */}
+      <div className="weapon-row">
+        <span className="weapon-label">LASER</span>
+        <div className="weapon-pips">
+          {Array.from({ length: LASER_MAX_CHARGES }, (_, i) => (
+            <div
+              key={i}
+              className={`weapon-pip weapon-pip--laser${i < laserCharges ? ' filled' : ''}`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
 // Mic status label map
@@ -121,11 +168,18 @@ const MIC_LABEL: Record<string, string> = {
 export function GameCanvas() {
   const {
     status, joinQueue, leaveQueue, sendSnapshot, latestRemoteSnapshot,
+    pendingRemoteWeaponEvent,
     micStatus, toggleMic,
   } = useNetworking()
 
   return (
     <>
+      {/* ── Score HUD (bottom-left) ──────────────────────────────────────────── */}
+      <ScoreHUD />
+
+      {/* ── Weapon HUD (bottom-right) ────────────────────────────────────────── */}
+      <WeaponHUD />
+
       {/* ── Mic indicator (only during a live match) ──────────────────────── */}
       {status === 'matched' && micStatus !== 'idle' && (
         <button
@@ -206,6 +260,7 @@ export function GameCanvas() {
                 <RemoteRobotEntity
                   color="#aa4a4a"
                   latestSnapshot={latestRemoteSnapshot}
+                  pendingWeaponEvent={pendingRemoteWeaponEvent}
                 />
               )}
             </Physics>

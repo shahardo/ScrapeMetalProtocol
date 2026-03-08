@@ -115,8 +115,17 @@ To ensure long-term maintainability and collaboration, all developers must adher
 * Build the React UI for the Garage (saving configs to the DB). ✅
 * Implement navigator.mediaDevices.getUserMedia for Voice Chat over WebRTC Media Streams, including strict try-catch handling for denied microphone permissions. ✅
 
-### **Sprint 9+: Polish & Programmable Bots**
+### **Sprint 9-10: Weapons System** ✅ Done
 
-* Implement the Web Worker sandboxed environment for running user-submitted JS bot logic.  
-* Add shaders, particle systems (sparks/smoke), and audio cues.  
+* **Gun (F key):** Physical projectile (`RigidBody` with CCD) spawned at the right arm. 0.7 s cooldown, 18 m/s muzzle velocity, 3.5 s TTL. Impacts transmit collision force to enemy parts — existing joint-break thresholds apply. ✅
+* **Laser (L key):** Instant raycast via `world.castRay()` from the left arm. 1.5 s cooldown. Renders a 220 ms emissive red beam sized to the actual hit distance. ✅
+* **One-shot-per-keypress:** Both weapons use a `consumed` ref pattern (same as jump) to prevent hold-to-spam. ✅
+* **`WeaponType = 'gun' | 'laser'`** added to `types/game.ts`. Full garage weapon-slot customisation arrives in Sprint 11+. ✅
+* **Architecture:** `WeaponSystem` component mounted inside `RobotEntity`; receives `chassisRef`, `facingAngleRef`, and `controls` refs. ✅
+
+### **Sprint 11+: Polish & Programmable Bots**
+
+* Implement the Web Worker sandboxed environment for running user-submitted JS bot logic.
+* Add shaders, particle systems (sparks/smoke), and audio cues.
+* Weapon damage numbers, heat/cooldown HUD bars, and weapon-slot customisation in the Garage.
 * Conduct load testing and finalize V1.0 deployment.

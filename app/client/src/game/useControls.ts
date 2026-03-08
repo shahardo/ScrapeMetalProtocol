@@ -7,6 +7,8 @@ export interface Controls {
   right: boolean     // D — rotate right
   jump: boolean      // Space — jump
   attack: boolean    // J / Z — attack
+  fireGun: boolean   // F — fire gun
+  fireLaser: boolean // L — fire laser
 }
 
 /**
@@ -27,6 +29,8 @@ export function useControls(): React.RefObject<Controls> {
     right: false,
     jump: false,
     attack: false,
+    fireGun: false,
+    fireLaser: false,
   })
 
   useEffect(() => {
@@ -39,19 +43,23 @@ export function useControls(): React.RefObject<Controls> {
         case 'KeyD': controls.current.right    = true;  break
         case 'Space': controls.current.jump    = true;  break
         case 'KeyJ':
-        case 'KeyZ': controls.current.attack   = true;  break
+        case 'KeyZ': controls.current.attack     = true;  break
+        case 'KeyF': controls.current.fireGun    = true;  break
+        case 'KeyL': controls.current.fireLaser  = true;  break
       }
     }
 
     const onKeyUp = (e: KeyboardEvent) => {
       switch (e.code) {
-        case 'KeyW': controls.current.forward  = false; break
-        case 'KeyS': controls.current.backward = false; break
-        case 'KeyA': controls.current.left     = false; break
-        case 'KeyD': controls.current.right    = false; break
-        case 'Space': controls.current.jump    = false; break
+        case 'KeyW': controls.current.forward    = false; break
+        case 'KeyS': controls.current.backward   = false; break
+        case 'KeyA': controls.current.left       = false; break
+        case 'KeyD': controls.current.right      = false; break
+        case 'Space': controls.current.jump      = false; break
         case 'KeyJ':
-        case 'KeyZ': controls.current.attack   = false; break
+        case 'KeyZ': controls.current.attack     = false; break
+        case 'KeyF': controls.current.fireGun    = false; break
+        case 'KeyL': controls.current.fireLaser  = false; break
       }
     }
 
