@@ -17,13 +17,23 @@ Client runs on `:5173`, server on `:3001`.
 **Monorepo** with npm workspaces: `app/client` and `app/server`.
 
 **Client** (`app/client/src/`):
+- `auth/` — `useAuth` hook (JWT in localStorage) + `AuthModal` component
 - `game/` — R3F components and game loop logic
+- `game/ui/` — `GarageModal`, `ScoreboardModal`, `AdminConsole`
+- `network/useNetworking.ts` — Socket.io + WebRTC hook; accepts `authToken` param
 - `store/gameStore.ts` — Zustand; single source of truth for match and player state
-- `types/game.ts` — all domain interfaces; import from here, never inline types
+- `types/game.ts` — all game domain interfaces; import from here, never inline types
+- `types/auth.ts` — `AuthUser`, `LobbyEntry`, `ScoreEntry` types
 
-**Server** (`app/server/src/index.ts`):
-- Fastify handles REST (auth, garage saves)
-- Socket.io handles matchmaking signaling and WebRTC SDP/ICE relay
+**Server** (`app/server/src/`):
+- `index.ts` — Fastify HTTP + Socket.io; lobby broadcast via `socketNames` Map
+- `auth.ts` — `signToken` / `verifyToken` / `tryVerifyToken` (JWT helpers)
+- `matchmaking.ts` — pure FIFO queue (`join`, `leave`, `tryPair`, `list`)
+- `models/user.ts` — User schema (username, passwordHash, isAdmin)
+- `models/score.ts` — Score schema (userId, username, score)
+- `routes/auth.ts` — `POST /auth/register`, `POST /auth/login`
+- `routes/scores.ts` — `GET /scores` (public), `POST /scores` (JWT required)
+- `routes/admin.ts` — `GET/DELETE /admin/users`, `PATCH /admin/users/:id/promote` (admin JWT)
 - WebRTC P2P DataChannel carries 20 Hz robot snapshots (`RobotSnapshot` type)
 
 ## Coding Standards (from PDD — non-negotiable)
@@ -34,6 +44,8 @@ Client runs on `:5173`, server on `:3001`.
 - **Scoped changes** — when fixing a bug or adding a feature, do not refactor unrelated code
 - **Test immediately** — every new backend function or pure game-logic function gets a test when written, not later
 - **Visible fast** — new features should appear in the frontend as soon as possible; don't build invisible backend systems for multiple sprints
+- **Minimal test runs** - when editting a file, run only the tests pertains to the modified code, not the whole project
+
 
 ## Key Design Decisions
 
@@ -60,6 +72,20 @@ Every system must fail gracefully — see PDD Section 4 for full spec:
 - Voice chat mic denial must show "Mic Unavailable" and let the match continue
 - User bot scripts must run in a sandboxed Web Worker with execution time limits
 
+## Auth Design Decisions
+
+**JWT stored in localStorage under `smp_auth`.**
+The full `AuthUser` object (token, userId, username, isAdmin) is JSON-serialised. Cleared on logout. Do not store tokens in cookies or session storage.
+
+**Auth is required to play.**
+`App.tsx` renders `AuthModal` until `useAuth().user` is non-null. All game UI is gated. Guests are not supported — every socket is associated with a username.
+
+**Socket auth is fire-and-forget.**
+On `connect`, the client emits `authenticate(token)`. The server stores `socketId → username` in a `Map`. If absent or invalid, the socket still works but appears as `Pilot-<id>` in the lobby.
+
+**Admin flag lives in the JWT.**
+`isAdmin` is embedded at login time. Promote/demote via `PATCH /admin/users/:id/promote` issues a new token on next login. Revoking admin requires the user to log out and back in.
+
 ## Sprint Boundaries
 
 Don't build ahead of the current sprint without flagging it.
@@ -67,5 +93,6 @@ Don't build ahead of the current sprint without flagging it.
 - **Sprint 1-2 (done):** physics engine, controllable robot, test arena
 - **Sprint 3-4 (done):** `RobotEntity` component system, joint attachments, impact listeners that break parts
 - **Sprint 5-6 (done):** Socket.io matchmaking, WebRTC DataChannels, 20 Hz snapshot broadcast
-- **Sprint 7-8 (done):** Garage UI, MongoDB schemas, voice chat (`getUserMedia`)
-- **Sprint 9+ (next):** Web Worker bot sandbox, shaders, audio, V1.0
+- **Sprint 7-8 (done):** Garage UI, MongoDB schemas, weapons (gun + laser), voice chat
+- **Sprint 9 (done):** JWT auth, waiting-room lobby, scoreboard, admin console
+- **Sprint 10+ (next):** Web Worker bot sandbox, shaders, audio, V1.0

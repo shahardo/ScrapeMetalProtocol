@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import type { RobotSnapshot } from '../types/game'
+import type { LobbyEntry, LiveScoreEntry } from '../types/auth'
+import { useGameStore } from '../store/gameStore'
 
 export type NetworkStatus = 'disconnected' | 'queued' | 'connecting' | 'matched'
 /** idle = not in a match; muted/active = in match; unavailable = mic denied */
@@ -27,9 +29,14 @@ interface WebRTCSignalIn {
 export interface NetworkingAPI {
   status: NetworkStatus
   isHost: boolean
+  lobby:  LobbyEntry[]
+  /** Seconds remaining in the pre-match countdown, or null when not counting. */
+  countdown: number | null
   joinQueue: () => void
   leaveQueue: () => void
   sendSnapshot: (snap: RobotSnapshot) => void
+  /** Emit the local player's current score to the server for live broadcast. */
+  reportScore: (score: number) => void
   latestRemoteSnapshot: React.RefObject<RobotSnapshot | null>
   /** Holds the most recent weapon-fire event from the remote player.
    *  Set by the network layer; cleared by the consumer (RemoteRobotEntity)
@@ -39,10 +46,14 @@ export interface NetworkingAPI {
   toggleMic: () => void
 }
 
-export function useNetworking(): NetworkingAPI {
+export function useNetworking(authToken?: string): NetworkingAPI {
   const [status,    setStatus]    = useState<NetworkStatus>('disconnected')
   const [isHost,    setIsHost]    = useState(false)
   const [micStatus, setMicStatus] = useState<MicStatus>('idle')
+  const [lobby,     setLobby]     = useState<LobbyEntry[]>([])
+  const [countdown, setCountdown] = useState<number | null>(null)
+
+  const setLiveScores = useGameStore((s) => s.setLiveScores)
 
   const socketRef    = useRef<Socket | null>(null)
   const pcRef        = useRef<RTCPeerConnection | null>(null)
@@ -144,9 +155,24 @@ export function useNetworking(): NetworkingAPI {
     socket.on('connect', () => {
       myIdRef.current = socket.id ?? ''
       setStatus('disconnected')
+      // Send JWT so the server knows our username for the lobby display
+      if (authToken) socket.emit('authenticate', authToken)
+    })
+
+    socket.on('lobby_update', (entries: LobbyEntry[]) => {
+      setLobby(entries)
+    })
+
+    socket.on('match_countdown', ({ secondsLeft }: { secondsLeft: number | null }) => {
+      setCountdown(secondsLeft)
+    })
+
+    socket.on('live_scores', (scores: LiveScoreEntry[]) => {
+      setLiveScores(scores)
     })
 
     socket.on('match_found', async (payload: MatchFoundPayload) => {
+      setCountdown(null)
       const host = payload.players[0] === myIdRef.current
       setIsHost(host)
       setStatus('connecting')
@@ -204,7 +230,7 @@ export function useNetworking(): NetworkingAPI {
       pcRef.current?.close()
       socket.disconnect()
     }
-  }, [makePeerConnection, setupChannel, cleanupVoice])
+  }, [authToken, makePeerConnection, setupChannel, cleanupVoice, setLiveScores])
 
   // ── Public API ───────────────────────────────────────────────────────────────
   const joinQueue = useCallback(() => {
@@ -221,6 +247,10 @@ export function useNetworking(): NetworkingAPI {
     const ch = channelRef.current
     if (!ch || ch.readyState !== 'open') return
     ch.send(JSON.stringify(snap))
+  }, [])
+
+  const reportScore = useCallback((score: number) => {
+    socketRef.current?.emit('score_update', score)
   }, [])
 
   /**
@@ -259,9 +289,9 @@ export function useNetworking(): NetworkingAPI {
   }, [])
 
   return {
-    status, isHost,
+    status, isHost, lobby, countdown,
     joinQueue, leaveQueue,
-    sendSnapshot, latestRemoteSnapshot, pendingRemoteWeaponEvent,
+    sendSnapshot, reportScore, latestRemoteSnapshot, pendingRemoteWeaponEvent,
     micStatus, toggleMic,
   }
 }

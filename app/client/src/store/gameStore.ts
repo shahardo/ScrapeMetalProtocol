@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { RobotPart, MatchState, ArenaId } from '../types/game'
+import type { LiveScoreEntry } from '../types/auth'
 
 export const GUN_MAX_AMMO       = 12
 export const LASER_MAX_CHARGES  = 5
@@ -31,6 +32,10 @@ interface GameStore {
   setLaserCharges: (n: number) => void
   addDamage: (n: number) => void
   addScore: (n: number) => void
+
+  // ── Live scores (in-session, from Socket.io) ──────────────────────────────
+  liveScores: LiveScoreEntry[]
+  setLiveScores: (scores: LiveScoreEntry[]) => void
 
   // ── Arena ─────────────────────────────────────────────────────────────────
   currentArena: ArenaId
@@ -71,6 +76,9 @@ export const useGameStore = create<GameStore>((set) => ({
   setLaserCharges: (n) => set({ laserCharges: n }),
   addDamage: (n) => set((s) => ({ damageDealt: s.damageDealt + n })),
   addScore: (n) => set((s) => ({ score: s.score + n })),
+
+  liveScores: [],
+  setLiveScores: (scores) => set({ liveScores: scores }),
 
   currentArena: 'test-arena',
   setCurrentArena: (arena) => set({ currentArena: arena }),

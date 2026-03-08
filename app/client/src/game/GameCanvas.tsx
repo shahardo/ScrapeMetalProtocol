@@ -165,12 +165,24 @@ const MIC_LABEL: Record<string, string> = {
   unavailable: '🎤 UNAVAILABLE',
 }
 
-export function GameCanvas() {
+interface GameCanvasProps {
+  authToken?: string
+  userId?:    string
+}
+
+export function GameCanvas({ authToken }: GameCanvasProps) {
   const {
-    status, joinQueue, leaveQueue, sendSnapshot, latestRemoteSnapshot,
+    status, lobby, countdown, joinQueue, leaveQueue,
+    sendSnapshot, reportScore, latestRemoteSnapshot,
     pendingRemoteWeaponEvent,
     micStatus, toggleMic,
-  } = useNetworking()
+  } = useNetworking(authToken)
+
+  // Report score to server whenever it changes so the live scoreboard updates.
+  const score = useGameStore((s) => s.score)
+  useEffect(() => {
+    if (status === 'matched') reportScore(score)
+  }, [score, status, reportScore])
 
   return (
     <>
@@ -203,7 +215,17 @@ export function GameCanvas() {
             )}
             {status === 'queued' && (
               <>
-                <p className="matchmaking-tagline">SEARCHING FOR OPPONENT<span className="matchmaking-dots">...</span></p>
+                {countdown !== null
+                  ? <p className="matchmaking-tagline">MATCH STARTING IN {countdown}<span className="matchmaking-dots">...</span></p>
+                  : <p className="matchmaking-tagline">SEARCHING FOR OPPONENT<span className="matchmaking-dots">...</span></p>
+                }
+                {lobby.length > 0 && (
+                  <ul className="lobby-list">
+                    {lobby.map((e) => (
+                      <li key={e.socketId} className="lobby-entry">{e.username}</li>
+                    ))}
+                  </ul>
+                )}
                 <button className="matchmaking-btn matchmaking-btn--cancel" onClick={leaveQueue}>CANCEL</button>
               </>
             )}

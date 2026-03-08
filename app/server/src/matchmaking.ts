@@ -30,6 +30,11 @@ export class MatchmakingQueue {
     return [a, b]
   }
 
+  /** Returns a shallow copy of all socket IDs currently waiting. */
+  list(): string[] {
+    return [...this.queue]
+  }
+
   get length(): number {
     return this.queue.length
   }

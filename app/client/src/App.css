@@ -49,12 +49,37 @@ html, body, #root {
   gap: 6px;
 }
 
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.hud-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .hud-title {
   font-size: 11px;
   letter-spacing: 0.2em;
   color: var(--color-primary);
   opacity: 0.9;
   text-transform: uppercase;
+}
+
+.hud-pilot {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--color-primary);
+  opacity: 0.85;
+  text-transform: uppercase;
+}
+
+.hud-admin-tag {
+  color: var(--color-danger);
 }
 
 .hud-garage-btn {
@@ -70,13 +95,32 @@ html, body, #root {
   text-transform: uppercase;
   opacity: 0.7;
   transition: opacity 0.15s, background 0.15s, color 0.15s;
-  align-self: flex-start;
 }
 
 .hud-garage-btn:hover {
   opacity: 1;
   background: var(--color-primary);
   color: #000;
+}
+
+.hud-garage-btn--admin {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.hud-garage-btn--admin:hover {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.hud-logout-btn {
+  border-color: rgba(200, 216, 224, 0.4);
+  color: rgba(200, 216, 224, 0.6);
+}
+
+.hud-logout-btn:hover {
+  background: rgba(200, 216, 224, 0.15);
+  color: var(--color-text);
 }
 
 .hud-controls {
@@ -501,4 +545,298 @@ html, body, #root {
   font-size: 20px;
   color: var(--color-primary);
   opacity: 0.7;
+}
+
+/* ── Auth overlay ─────────────────────────────────────────────────────────── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  z-index: 200;
+}
+
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: min(360px, 90vw);
+}
+
+.auth-title {
+  font-size: 20px;
+  letter-spacing: 0.3em;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  text-shadow: 0 0 18px var(--color-primary);
+  text-align: center;
+}
+
+.auth-subtitle {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--color-text);
+  opacity: 0.5;
+  text-transform: uppercase;
+  margin-top: -10px;
+}
+
+.auth-tabs {
+  display: flex;
+  width: 100%;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.auth-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  padding: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.auth-tab--active {
+  opacity: 1;
+  background: rgba(0, 255, 255, 0.08);
+  color: var(--color-primary);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.auth-input {
+  background: #161c28;
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  padding: 10px 14px;
+  outline: none;
+  text-transform: uppercase;
+  transition: border-color 0.15s;
+}
+
+.auth-input:focus {
+  border-color: var(--color-primary);
+}
+
+.auth-error {
+  font-size: 11px;
+  color: var(--color-danger);
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.auth-submit {
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  padding: 11px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+  margin-top: 4px;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #000;
+}
+
+.auth-submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Scoreboard modal ─────────────────────────────────────────────────────── */
+.scoreboard-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 16, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.scoreboard-panel {
+  background: #0d1018;
+  border: 1px solid var(--color-primary);
+  width: min(480px, 92vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-panel {
+  width: min(620px, 94vw);
+  max-height: 80vh;
+}
+
+.scoreboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+}
+
+.scoreboard-title {
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--color-primary);
+  text-transform: uppercase;
+}
+
+.scoreboard-section + .scoreboard-section {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.scoreboard-section-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--color-accent, #5fa8d3);
+  opacity: 0.7;
+  padding: 6px 20px 2px;
+  margin: 0;
+}
+
+.scoreboard-empty {
+  font-size: 11px;
+  color: var(--color-text);
+  opacity: 0.45;
+  text-align: center;
+  padding: 28px 20px;
+  letter-spacing: 0.1em;
+}
+
+.scoreboard-list {
+  overflow-y: auto;
+  list-style: none;
+  padding: 8px 0;
+}
+
+.scoreboard-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.scoreboard-row--top {
+  color: var(--color-primary);
+}
+
+.scoreboard-rank {
+  width: 28px;
+  opacity: 0.5;
+  font-size: 10px;
+}
+
+.scoreboard-name {
+  flex: 1;
+  text-transform: uppercase;
+}
+
+.scoreboard-score {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--color-primary);
+  text-shadow: 0 0 8px var(--color-primary);
+}
+
+/* ── Admin console ────────────────────────────────────────────────────────── */
+.admin-error {
+  color: var(--color-danger);
+}
+
+.admin-user-list {
+  overflow-y: auto;
+  list-style: none;
+  padding: 8px 0;
+}
+
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.admin-username {
+  flex: 1;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-badge {
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  padding: 1px 5px;
+}
+
+.admin-date {
+  font-size: 10px;
+  opacity: 0.4;
+  white-space: nowrap;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Lobby waiting-room list ──────────────────────────────────────────────── */
+.lobby-list {
+  list-style: none;
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  padding: 8px 14px;
+  width: 220px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.lobby-entry {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--color-primary);
+  opacity: 0.75;
+  padding: 3px 0;
+  text-transform: uppercase;
+}
+
+.lobby-entry::before {
+  content: '▶ ';
+  opacity: 0.5;
 }
