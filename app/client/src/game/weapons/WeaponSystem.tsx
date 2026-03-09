@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
+import type * as THREE from 'three'
 import {
   RigidBody,
   CuboidCollider,
@@ -12,6 +13,14 @@ import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES } from '../../store/gameS
 import { playGunShot, playLaserShot, playHitConfirm } from './sounds'
 import type { Controls } from '../useControls'
 import type { WeaponType } from '../../types/game'
+
+// ── Spark particle constants ──────────────────────────────────────────────────
+
+const SPARK_COUNT = 10
+const SPARK_TTL   = 0.45   // seconds
+// Each spark gets a random launch speed in this range (m/s)
+const SPARK_SPEED_MIN = 2.5
+const SPARK_SPEED_MAX = 6.0
 
 // ── Weapon constants ──────────────────────────────────────────────────────────
 
@@ -61,13 +70,97 @@ interface MuzzleFlash {
   type: WeaponType
 }
 
+export interface SparkBurstData {
+  id: string
+  position: [number, number, number]
+  /** Pre-computed per-spark velocities [vx, vy, vz] in world space. */
+  velocities: [number, number, number][]
+}
+
+/** Pure factory: builds a SparkBurstData with randomised per-spark velocities. */
+export function makeSparkBurst(pos: [number, number, number]): SparkBurstData {
+  return {
+    id: crypto.randomUUID(),
+    position: pos,
+    velocities: Array.from({ length: SPARK_COUNT }, () => {
+      const angle = Math.random() * Math.PI * 2
+      const speed = SPARK_SPEED_MIN + Math.random() * (SPARK_SPEED_MAX - SPARK_SPEED_MIN)
+      return [
+        Math.cos(angle) * speed,
+        0.8 + Math.random() * 2.5,
+        Math.sin(angle) * speed * 0.15,  // keep sparks roughly on the 2D combat plane
+      ] as [number, number, number]
+    }),
+  }
+}
+
+// ── SparkBurst sub-component ──────────────────────────────────────────────────
+// Renders SPARK_COUNT small emissive quads that fly outward from a hit point,
+// arc under gravity, and shrink away over SPARK_TTL seconds.
+// No Rapier bodies — pure visual transform via useFrame.
+// Exported so RemoteRobotEntity can render hit effects from incoming snapshots.
+
+interface SparkBurstProps {
+  data: SparkBurstData
+  onExpired: (id: string) => void
+}
+
+export function SparkBurst({ data, onExpired }: SparkBurstProps) {
+  const ageRef     = useRef(0)
+  const expiredRef = useRef(false)
+  // One ref per spark mesh, indexed to data.velocities
+  const meshRefs   = useRef<(THREE.Mesh | null)[]>(Array(SPARK_COUNT).fill(null))
+
+  useFrame((_, delta) => {
+    if (expiredRef.current) return
+    ageRef.current += delta
+
+    if (ageRef.current >= SPARK_TTL) {
+      expiredRef.current = true
+      onExpired(data.id)
+      return
+    }
+
+    const t = ageRef.current / SPARK_TTL  // 0 → 1
+    const scale = (1 - t) * 0.08
+
+    meshRefs.current.forEach((mesh, i) => {
+      if (!mesh) return
+      const [vx, vy, vz] = data.velocities[i]
+      // Kinematic position: x(t) = x0 + vx*t,  y(t) = y0 + vy*t - 0.5*g*t²
+      const age = ageRef.current
+      mesh.position.set(
+        data.position[0] + vx * age,
+        data.position[1] + vy * age - 4.9 * age * age,
+        data.position[2] + vz * age,
+      )
+      mesh.scale.setScalar(Math.max(0, scale))
+    })
+  })
+
+  return (
+    <>
+      {data.velocities.map((_, i) => (
+        <mesh key={i} ref={(el) => { meshRefs.current[i] = el }}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial
+            color="#ffaa00"
+            emissive="#ff6600"
+            emissiveIntensity={8}
+          />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
 // ── Bullet sub-component ──────────────────────────────────────────────────────
 
 interface BulletProps {
   id: string
   spawnPos: [number, number, number]
   velocity: [number, number, number]
-  onExpire: (id: string, wasHit: boolean) => void
+  onExpire: (id: string, wasHit: boolean, pos?: [number, number, number]) => void
 }
 
 function Bullet({ id, spawnPos, velocity, onExpire }: BulletProps) {
@@ -80,7 +173,10 @@ function Bullet({ id, spawnPos, velocity, onExpire }: BulletProps) {
   const safeExpire = useCallback((wasHit: boolean) => {
     if (expiredRef.current) return
     expiredRef.current = true
-    onExpire(id, wasHit)
+    // Pass the current world position so callers can spawn hit effects at the impact site
+    const t = rbRef.current?.translation()
+    const pos: [number, number, number] | undefined = t ? [t.x, t.y, t.z] : undefined
+    onExpire(id, wasHit, pos)
   }, [id, onExpire])
 
   useFrame((_, delta) => {
@@ -142,18 +238,24 @@ interface WeaponSystemProps {
   controls:       RefObject<Controls>
   /** Called when a weapon fires so RobotEntity can include it in the next snapshot. */
   onWeaponFired?: (event: WeaponEvent) => void
+  /**
+   * Called when a shot confirms a hit, so RobotEntity can include `weaponHit`
+   * in the next snapshot and the defender's screen can show the effect too.
+   */
+  onWeaponHit?: (type: WeaponType, hitPos: [number, number, number], damage: number) => void
 }
 
 export function WeaponSystem({
-  chassisRef, facingAngleRef, controls, onWeaponFired,
+  chassisRef, facingAngleRef, controls, onWeaponFired, onWeaponHit,
 }: WeaponSystemProps) {
   const { rapier, world } = useRapier()
 
   const { gunAmmo, laserCharges, setGunAmmo, setLaserCharges, addDamage, addScore } = useGameStore()
 
-  const [bullets,    setBullets]    = useState<BulletData[]>([])
-  const [laserBeam,  setLaserBeam]  = useState<LaserBeamState | null>(null)
+  const [bullets,     setBullets]     = useState<BulletData[]>([])
+  const [laserBeam,   setLaserBeam]   = useState<LaserBeamState | null>(null)
   const [muzzleFlash, setMuzzleFlash] = useState<MuzzleFlash | null>(null)
+  const [sparkBursts, setSparkBursts] = useState<SparkBurstData[]>([])
 
   const gunCooldown     = useRef(0)
   const laserCooldown   = useRef(0)
@@ -166,14 +268,17 @@ export function WeaponSystem({
   const gunReloadTimer     = useRef(0)
   const laserRechargeTimer = useRef(0)
 
-  const expireBullet = useCallback((bulletId: string, wasHit: boolean) => {
+  const expireBullet = useCallback((bulletId: string, wasHit: boolean, pos?: [number, number, number]) => {
     setBullets((prev) => prev.filter((b) => b.id !== bulletId))
-    if (wasHit) {
+    if (wasHit && pos) {
       addDamage(GUN_DAMAGE)
       addScore(1)
       playHitConfirm()
+      useGameStore.getState().addDamagePopup(GUN_DAMAGE, pos)
+      setSparkBursts((prev) => [...prev, makeSparkBurst(pos)])
+      onWeaponHit?.('gun', pos, GUN_DAMAGE)
     }
-  }, [addDamage, addScore])
+  }, [addDamage, addScore, onWeaponHit])
 
   useFrame((_, delta) => {
     const rb = chassisRef.current
@@ -293,6 +398,14 @@ export function WeaponSystem({
           addDamage(LASER_DAMAGE)
           addScore(2)
           playHitConfirm()
+          const hitPos: [number, number, number] = [
+            origin.x + dirX * dist,
+            origin.y,
+            origin.z + dirZ * dist,
+          ]
+          useGameStore.getState().addDamagePopup(LASER_DAMAGE, hitPos)
+          setSparkBursts((prev) => [...prev, makeSparkBurst(hitPos)])
+          onWeaponHit?.('laser', hitPos, LASER_DAMAGE)
         }
 
         const beamExpiresAt = now + LASER_DISPLAY * 1000
@@ -334,6 +447,15 @@ export function WeaponSystem({
       {/* ── Bullets ───────────────────────────────────────────────────────── */}
       {bullets.map((b) => (
         <Bullet key={b.id} {...b} onExpire={expireBullet} />
+      ))}
+
+      {/* ── Spark bursts (impact hit effects) ──────────────────────────────── */}
+      {sparkBursts.map((burst) => (
+        <SparkBurst
+          key={burst.id}
+          data={burst}
+          onExpired={(id) => setSparkBursts((prev) => prev.filter((s) => s.id !== id))}
+        />
       ))}
 
       {/* ── Laser beam ─────────────────────────────────────────────────────── */}

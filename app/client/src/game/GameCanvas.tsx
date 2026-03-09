@@ -1,11 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
 import { Arena } from './Arena'
 import { RobotEntity } from './robot/RobotEntity'
 import { RemoteRobotEntity } from './RemoteRobotEntity'
 import { useNetworking } from '../network/useNetworking'
-import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES } from '../store/gameStore'
+import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, CHASSIS_MAX_HEALTH } from '../store/gameStore'
 
 // ── React Error Boundary ──────────────────────────────────────────────────────
 
@@ -110,6 +111,68 @@ function CameraController() {
   return null
 }
 
+// ── HealthBar ─────────────────────────────────────────────────────────────────
+
+function HealthBar() {
+  const chassisHealth = useGameStore((s) => s.chassisHealth)
+  const pct = (chassisHealth / CHASSIS_MAX_HEALTH) * 100
+
+  // Colour shifts: green → yellow → red as health drops
+  const color =
+    pct > 60 ? '#00ff88'
+    : pct > 30 ? '#ffcc00'
+    : '#ff3344'
+
+  return (
+    <div className="health-bar-container">
+      <span className="health-bar-label">HULL</span>
+      <div className="health-bar-track">
+        <div
+          className="health-bar-fill"
+          style={{ width: `${pct}%`, background: color, boxShadow: `0 0 6px ${color}` }}
+        />
+      </div>
+      <span className="health-bar-value">{chassisHealth}</span>
+    </div>
+  )
+}
+
+// ── HitPopups ─────────────────────────────────────────────────────────────────
+// Renders floating damage numbers in 3D space via drei's Html component so
+// they appear at the exact world position of each hit, on both players' screens.
+// Must be placed INSIDE the Canvas.
+
+const POPUP_TTL_MS = 900
+
+function HitPopups() {
+  const { damagePopups, clearDamagePopup } = useGameStore()
+
+  useEffect(() => {
+    if (damagePopups.length === 0) return
+    const oldest = damagePopups[0]
+    if (!oldest) return
+    const remaining = POPUP_TTL_MS - (Date.now() - oldest.createdAt)
+    const timer = setTimeout(() => clearDamagePopup(oldest.id), Math.max(0, remaining))
+    return () => clearTimeout(timer)
+  }, [damagePopups, clearDamagePopup])
+
+  return (
+    <>
+      {damagePopups.map((p) => (
+        <Html
+          key={p.id}
+          // Anchor slightly above the hit point so the number floats upward visibly
+          position={[p.hitPos[0], p.hitPos[1] + 0.5, p.hitPos[2]]}
+          center
+          style={{ pointerEvents: 'none' }}
+        >
+          <div className="damage-popup">-{p.amount}</div>
+        </Html>
+      ))}
+    </>
+  )
+}
+
 // ── WeaponHUD ─────────────────────────────────────────────────────────────────
 
 function ScoreHUD() {
@@ -174,7 +237,7 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
   const {
     status, lobby, countdown, joinQueue, leaveQueue,
     sendSnapshot, reportScore, latestRemoteSnapshot,
-    pendingRemoteWeaponEvent,
+    pendingRemoteWeaponEvent, pendingRemoteWeaponHit,
     micStatus, toggleMic,
   } = useNetworking(authToken)
 
@@ -188,6 +251,9 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
     <>
       {/* ── Score HUD (bottom-left) ──────────────────────────────────────────── */}
       <ScoreHUD />
+
+      {/* ── Hull health bar (above score) ───────────────────────────────────── */}
+      <HealthBar />
 
       {/* ── Weapon HUD (bottom-right) ────────────────────────────────────────── */}
       <WeaponHUD />
@@ -269,6 +335,9 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
           {/* Warm under-light for the floor surface */}
           <pointLight position={[0, 1, 3]} intensity={0.9} color="#a07850" />
 
+          {/* ── Floating damage numbers anchored to 3D hit positions ────── */}
+          <HitPopups />
+
           {/* ── Physics world ────────────────────────────────────────────── */}
           <Suspense fallback={null}>
             <Physics gravity={[0, -30, 0]}>
@@ -283,6 +352,7 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
                   color="#aa4a4a"
                   latestSnapshot={latestRemoteSnapshot}
                   pendingWeaponEvent={pendingRemoteWeaponEvent}
+                  pendingWeaponHit={pendingRemoteWeaponHit}
                 />
               )}
             </Physics>

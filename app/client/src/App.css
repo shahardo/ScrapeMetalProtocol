@@ -522,6 +522,68 @@ html, body, #root {
   text-align: left;
 }
 
+/* ── Hull health bar (bottom-left, above score) ───────────────────────────── */
+.health-bar-container {
+  position: absolute;
+  bottom: 80px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.health-bar-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--color-text);
+  opacity: 0.55;
+  text-transform: uppercase;
+  width: 32px;
+}
+
+.health-bar-track {
+  width: 120px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.health-bar-fill {
+  height: 100%;
+  transition: width 0.25s ease, background 0.4s ease;
+}
+
+.health-bar-value {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--color-text);
+  opacity: 0.6;
+  width: 24px;
+  text-align: right;
+}
+
+/* ── Floating damage popups (rendered in world space via drei Html) ───────── */
+/* Positioned by the Canvas camera projection — no fixed screen coords needed. */
+.damage-popup {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ff3344;
+  text-shadow: 0 0 10px #ff3344, 0 0 3px #000;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  user-select: none;
+  animation: popup-float 0.9s ease-out forwards;
+}
+
+@keyframes popup-float {
+  0%   { opacity: 1;   transform: translateY(0)    scale(1.2); }
+  20%  { opacity: 1;   transform: translateY(-10px) scale(1); }
+  100% { opacity: 0;   transform: translateY(-40px) scale(0.8); }
+}
+
 /* ── Score HUD (bottom-left) ──────────────────────────────────────────────── */
 .score-hud {
   position: absolute;

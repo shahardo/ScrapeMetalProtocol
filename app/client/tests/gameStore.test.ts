@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES } from '../src/store/gameStore'
+import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, CHASSIS_MAX_HEALTH } from '../src/store/gameStore'
 import type { RobotPart } from '../src/types/game'
 
 // Zustand stores are module-level singletons. Reset to a clean baseline
@@ -11,6 +11,8 @@ beforeEach(() => {
     damageDealt: 0,
     gunAmmo: GUN_MAX_AMMO,
     laserCharges: LASER_MAX_CHARGES,
+    chassisHealth: CHASSIS_MAX_HEALTH,
+    damagePopups: [],
   })
 })
 
@@ -188,5 +190,77 @@ describe('setLaserCharges', () => {
     useGameStore.setState({ gunAmmo: 9 })
     useGameStore.getState().setLaserCharges(1)
     expect(useGameStore.getState().gunAmmo).toBe(9)
+  })
+})
+
+// ── damagePlayerChassis ───────────────────────────────────────────────────────
+
+describe('damagePlayerChassis', () => {
+  it('reduces chassisHealth by the given amount', () => {
+    useGameStore.getState().damagePlayerChassis(20)
+    expect(useGameStore.getState().chassisHealth).toBe(CHASSIS_MAX_HEALTH - 20)
+  })
+
+  it('does not reduce below zero', () => {
+    useGameStore.getState().damagePlayerChassis(9999)
+    expect(useGameStore.getState().chassisHealth).toBe(0)
+  })
+
+  it('accumulates across multiple hits', () => {
+    useGameStore.getState().damagePlayerChassis(10)
+    useGameStore.getState().damagePlayerChassis(15)
+    expect(useGameStore.getState().chassisHealth).toBe(CHASSIS_MAX_HEALTH - 25)
+  })
+
+  it('does not modify score or damageDealt', () => {
+    useGameStore.setState({ score: 5, damageDealt: 100 })
+    useGameStore.getState().damagePlayerChassis(30)
+    expect(useGameStore.getState().score).toBe(5)
+    expect(useGameStore.getState().damageDealt).toBe(100)
+  })
+})
+
+// ── addDamagePopup / clearDamagePopup ─────────────────────────────────────────
+
+const HIT_POS: [number, number, number] = [1, 2, 3]
+
+describe('addDamagePopup', () => {
+  it('adds a popup entry with the correct amount and hitPos', () => {
+    useGameStore.getState().addDamagePopup(25, HIT_POS)
+    const popups = useGameStore.getState().damagePopups
+    expect(popups).toHaveLength(1)
+    expect(popups[0]?.amount).toBe(25)
+    expect(popups[0]?.hitPos).toEqual(HIT_POS)
+  })
+
+  it('assigns a unique id to each popup', () => {
+    useGameStore.getState().addDamagePopup(10, HIT_POS)
+    useGameStore.getState().addDamagePopup(40, HIT_POS)
+    const ids = useGameStore.getState().damagePopups.map((p) => p.id)
+    expect(new Set(ids).size).toBe(2)
+  })
+
+  it('accumulates multiple popups', () => {
+    useGameStore.getState().addDamagePopup(25, HIT_POS)
+    useGameStore.getState().addDamagePopup(40, HIT_POS)
+    expect(useGameStore.getState().damagePopups).toHaveLength(2)
+  })
+})
+
+describe('clearDamagePopup', () => {
+  it('removes only the matching popup by id', () => {
+    useGameStore.getState().addDamagePopup(25, HIT_POS)
+    useGameStore.getState().addDamagePopup(40, HIT_POS)
+    const [first] = useGameStore.getState().damagePopups
+    useGameStore.getState().clearDamagePopup(first!.id)
+    const remaining = useGameStore.getState().damagePopups
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0]?.amount).toBe(40)
+  })
+
+  it('is a no-op for an unknown id', () => {
+    useGameStore.getState().addDamagePopup(25, HIT_POS)
+    useGameStore.getState().clearDamagePopup('does-not-exist')
+    expect(useGameStore.getState().damagePopups).toHaveLength(1)
   })
 })

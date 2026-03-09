@@ -4,6 +4,16 @@ import type { LiveScoreEntry } from '../types/auth'
 
 export const GUN_MAX_AMMO       = 12
 export const LASER_MAX_CHARGES  = 5
+export const CHASSIS_MAX_HEALTH = 100
+
+/** A transient hit popup rendered in world space by HitPopups inside the Canvas. */
+export interface DamagePopup {
+  id: string
+  amount: number
+  createdAt: number
+  /** World-space position of the hit, used to anchor the popup in 3D. */
+  hitPos: [number, number, number]
+}
 
 interface GameStore {
   // ── Match ────────────────────────────────────────────────────────────────
@@ -23,6 +33,12 @@ interface GameStore {
    */
   damagePlayerPart: (partId: string, damage: number) => void
 
+  // ── Chassis health (player's own robot) ───────────────────────────────────
+  chassisHealth: number
+  /** Subtract damage from chassisHealth, clamped to [0, CHASSIS_MAX_HEALTH]. */
+  damagePlayerChassis: (amount: number) => void
+  setChassisHealth: (h: number) => void
+
   // ── Weapons ───────────────────────────────────────────────────────────────
   gunAmmo: number
   laserCharges: number
@@ -32,6 +48,11 @@ interface GameStore {
   setLaserCharges: (n: number) => void
   addDamage: (n: number) => void
   addScore: (n: number) => void
+
+  // ── Damage popups (floating hit numbers shown on successful hits) ──────────
+  damagePopups: DamagePopup[]
+  addDamagePopup: (amount: number, hitPos: [number, number, number]) => void
+  clearDamagePopup: (id: string) => void
 
   // ── Live scores (in-session, from Socket.io) ──────────────────────────────
   liveScores: LiveScoreEntry[]
@@ -68,6 +89,11 @@ export const useGameStore = create<GameStore>((set) => ({
       }),
     })),
 
+  chassisHealth: CHASSIS_MAX_HEALTH,
+  damagePlayerChassis: (amount) =>
+    set((s) => ({ chassisHealth: Math.max(0, s.chassisHealth - amount) })),
+  setChassisHealth: (h) => set({ chassisHealth: Math.max(0, Math.min(CHASSIS_MAX_HEALTH, h)) }),
+
   gunAmmo: GUN_MAX_AMMO,
   laserCharges: LASER_MAX_CHARGES,
   damageDealt: 0,
@@ -76,6 +102,17 @@ export const useGameStore = create<GameStore>((set) => ({
   setLaserCharges: (n) => set({ laserCharges: n }),
   addDamage: (n) => set((s) => ({ damageDealt: s.damageDealt + n })),
   addScore: (n) => set((s) => ({ score: s.score + n })),
+
+  damagePopups: [],
+  addDamagePopup: (amount, hitPos) =>
+    set((s) => ({
+      damagePopups: [
+        ...s.damagePopups,
+        { id: crypto.randomUUID(), amount, createdAt: Date.now(), hitPos },
+      ],
+    })),
+  clearDamagePopup: (id) =>
+    set((s) => ({ damagePopups: s.damagePopups.filter((p) => p.id !== id) })),
 
   liveScores: [],
   setLiveScores: (scores) => set({ liveScores: scores }),

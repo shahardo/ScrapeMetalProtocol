@@ -42,6 +42,9 @@ export interface NetworkingAPI {
    *  Set by the network layer; cleared by the consumer (RemoteRobotEntity)
    *  after reading, so it is never overwritten by a subsequent position snapshot. */
   pendingRemoteWeaponEvent: React.MutableRefObject<NonNullable<RobotSnapshot['weaponFired']> | null>
+  /** Holds the most recent confirmed hit from the remote player (shooter's POV).
+   *  The defender uses this to render sparks + damage numbers on their own screen. */
+  pendingRemoteWeaponHit: React.MutableRefObject<NonNullable<RobotSnapshot['weaponHit']> | null>
   micStatus: MicStatus
   toggleMic: () => void
 }
@@ -62,6 +65,7 @@ export function useNetworking(authToken?: string): NetworkingAPI {
   const opponentRef  = useRef('')
   const latestRemoteSnapshot      = useRef<RobotSnapshot | null>(null)
   const pendingRemoteWeaponEvent  = useRef<NonNullable<RobotSnapshot['weaponFired']> | null>(null)
+  const pendingRemoteWeaponHit    = useRef<NonNullable<RobotSnapshot['weaponHit']>   | null>(null)
 
   // Voice chat refs
   const micStreamRef   = useRef<MediaStream | null>(null)
@@ -90,6 +94,9 @@ export function useNetworking(authToken?: string): NetworkingAPI {
         // position-only snapshots arriving before RemoteRobotEntity reads them.
         if (snap.weaponFired) {
           pendingRemoteWeaponEvent.current = snap.weaponFired
+        }
+        if (snap.weaponHit) {
+          pendingRemoteWeaponHit.current = snap.weaponHit
         }
         latestRemoteSnapshot.current = snap
       } catch {
@@ -219,6 +226,7 @@ export function useNetworking(authToken?: string): NetworkingAPI {
       channelRef.current = null
       latestRemoteSnapshot.current = null
       pendingRemoteWeaponEvent.current = null
+      pendingRemoteWeaponHit.current = null
       cleanupVoice()
       setStatus('disconnected')
     })
@@ -291,7 +299,7 @@ export function useNetworking(authToken?: string): NetworkingAPI {
   return {
     status, isHost, lobby, countdown,
     joinQueue, leaveQueue,
-    sendSnapshot, reportScore, latestRemoteSnapshot, pendingRemoteWeaponEvent,
+    sendSnapshot, reportScore, latestRemoteSnapshot, pendingRemoteWeaponEvent, pendingRemoteWeaponHit,
     micStatus, toggleMic,
   }
 }

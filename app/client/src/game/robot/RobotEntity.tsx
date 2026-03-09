@@ -8,6 +8,7 @@ import {
 } from '@react-three/rapier'
 import { useControls } from '../useControls'
 import { WeaponSystem, type WeaponEvent } from '../weapons/WeaponSystem'
+import { useGameStore } from '../../store/gameStore'
 import type { RobotSnapshot } from '../../types/game'
 
 // ── Movement constants ────────────────────────────────────────────────────────
@@ -165,6 +166,8 @@ export function RobotEntity({
   const snapshotTimer        = useRef(0)
   // Stores the last weapon fired this snapshot window; cleared after transmission.
   const pendingWeaponEvent   = useRef<WeaponEvent | null>(null)
+  // Stores the last confirmed hit this snapshot window; cleared after transmission.
+  const pendingWeaponHit     = useRef<NonNullable<RobotSnapshot['weaponHit']> | null>(null)
 
   const [sx, sy, sz] = startPosition
 
@@ -215,6 +218,10 @@ export function RobotEntity({
           snap.weaponFired = pendingWeaponEvent.current
           pendingWeaponEvent.current = null
         }
+        if (pendingWeaponHit.current) {
+          snap.weaponHit = pendingWeaponHit.current
+          pendingWeaponHit.current = null
+        }
         onSnapshot(snap)
       }
     }
@@ -235,6 +242,14 @@ export function RobotEntity({
         angularDamping={999}
         onCollisionEnter={() => { groundContacts.current++ }}
         onCollisionExit={() => { groundContacts.current = Math.max(0, groundContacts.current - 1) }}
+        onContactForce={({ other, totalForceMagnitude }) => {
+          // Ignore arena surfaces — only enemy robots and projectiles deal damage
+          const name = other.rigidBodyObject?.name ?? ''
+          if (ARENA_NAMES.has(name) || name === 'player') return
+          // Scale force to HP: 300 N ≈ 1 damage, capped at 15 per contact event
+          const damage = Math.min(15, Math.floor(totalForceMagnitude / 300))
+          if (damage > 0) useGameStore.getState().damagePlayerChassis(damage)
+        }}
       >
         <mesh castShadow>
           <boxGeometry args={[0.7, 1.0, 0.5]} />
@@ -311,6 +326,7 @@ export function RobotEntity({
         facingAngleRef={facingAngle}
         controls={controls}
         onWeaponFired={(event) => { pendingWeaponEvent.current = event }}
+        onWeaponHit={(type, hitPos, damage) => { pendingWeaponHit.current = { type, hitPos, damage } }}
       />
     </>
   )

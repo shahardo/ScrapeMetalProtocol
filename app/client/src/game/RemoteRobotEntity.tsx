@@ -7,6 +7,8 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier'
 import type { RobotSnapshot } from '../types/game'
+import { SparkBurst, makeSparkBurst, type SparkBurstData } from './weapons/WeaponSystem'
+import { useGameStore } from '../store/gameStore'
 import type React from 'react'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -100,12 +102,16 @@ interface RemoteRobotEntityProps {
   latestSnapshot: React.RefObject<RobotSnapshot | null>
   /** Dedicated weapon-event ref — set by network layer, cleared here after consumption. */
   pendingWeaponEvent: React.MutableRefObject<NonNullable<RobotSnapshot['weaponFired']> | null>
+  /** Hit-confirmation ref — set by network layer when shooter confirms a hit.
+   *  Used to render sparks + damage popup on the defender's screen. */
+  pendingWeaponHit: React.MutableRefObject<NonNullable<RobotSnapshot['weaponHit']> | null>
 }
 
 export function RemoteRobotEntity({
   color = '#aa4a4a',
   latestSnapshot,
   pendingWeaponEvent,
+  pendingWeaponHit,
 }: RemoteRobotEntityProps) {
   const chassisRef     = useRef<RapierRigidBody>(null)
   const bulletIdRef    = useRef(0)
@@ -113,6 +119,9 @@ export function RemoteRobotEntity({
 
   const [remoteBullets, setRemoteBullets] = useState<RemoteBulletData[]>([])
   const [laserEffect,   setLaserEffect]   = useState<LaserEffectData | null>(null)
+  const [sparkBursts,   setSparkBursts]   = useState<SparkBurstData[]>([])
+
+  const addDamagePopup = useGameStore((s) => s.addDamagePopup)
 
   const expireBullet = useCallback((id: number) => {
     setRemoteBullets((prev) => prev.filter((b) => b.id !== id))
@@ -125,6 +134,15 @@ export function RemoteRobotEntity({
 
     rb.setNextKinematicTranslation({ x: snap.pos[0], y: snap.pos[1], z: snap.pos[2] })
     rb.setNextKinematicRotation({ x: snap.rot[0], y: snap.rot[1], z: snap.rot[2], w: snap.rot[3] })
+
+    // Consume hit-confirmation: show sparks + damage popup on this screen too.
+    const whit = pendingWeaponHit.current
+    if (whit) {
+      pendingWeaponHit.current = null
+      const burst = makeSparkBurst(whit.hitPos)
+      setSparkBursts((prev) => [...prev, burst])
+      addDamagePopup(whit.damage, whit.hitPos)
+    }
 
     // Consume weapon event.
     const wev = pendingWeaponEvent.current
@@ -208,6 +226,15 @@ export function RemoteRobotEntity({
     {/* ── Remote bullets (physics, stops on impact) ─────────────────────────── */}
     {remoteBullets.map((b) => (
       <RemoteBullet key={b.id} {...b} onExpire={expireBullet} />
+    ))}
+
+    {/* ── Spark bursts from confirmed hits (visible on defender's screen) ────── */}
+    {sparkBursts.map((burst) => (
+      <SparkBurst
+        key={burst.id}
+        data={burst}
+        onExpired={(id) => setSparkBursts((prev) => prev.filter((s) => s.id !== id))}
+      />
     ))}
 
     {/* ── Remote laser beam ─────────────────────────────────────────────────── */}

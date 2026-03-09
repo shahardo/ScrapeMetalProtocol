@@ -69,6 +69,16 @@ export interface RobotSnapshot {
     /** Laser only: actual raycast hit distance so the opponent renders the beam at the correct length. */
     dist?: number
   }
+  /**
+   * Set when a shot confirmed a hit this tick.
+   * The receiver uses this to render impact sparks and floating damage numbers
+   * at the world-space hit point — on both players' screens.
+   */
+  weaponHit?: {
+    type:   WeaponType
+    hitPos: [number, number, number]
+    damage: number
+  }
 }
 
 /** Saved robot as returned by the Garage REST API (includes MongoDB metadata). */
