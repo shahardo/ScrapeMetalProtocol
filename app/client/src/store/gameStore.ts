@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import type { RobotPart, MatchState, ArenaId } from '../types/game'
+import type { RobotPart, MatchState, ArenaId, WeaponType } from '../types/game'
 import type { LiveScoreEntry } from '../types/auth'
 
 export const GUN_MAX_AMMO       = 12
 export const LASER_MAX_CHARGES  = 5
+export const ROCKET_MAX_AMMO    = 2
 export const CHASSIS_MAX_HEALTH = 100
 
 /** A transient hit popup rendered in world space by HitPopups inside the Canvas. */
@@ -42,12 +43,31 @@ interface GameStore {
   // ── Weapons ───────────────────────────────────────────────────────────────
   gunAmmo: number
   laserCharges: number
+  rocketAmmo: number
   damageDealt: number
   score: number
   setGunAmmo: (n: number) => void
   setLaserCharges: (n: number) => void
+  setRocketAmmo: (n: number) => void
   addDamage: (n: number) => void
   addScore: (n: number) => void
+
+  /**
+   * Incremented each time the weapon fires; used as a React key on the
+   * cooldown bar div so the CSS animation restarts without per-frame state.
+   */
+  gunCooldownKey: number
+  laserCooldownKey: number
+  bumpGunCooldown: () => void
+  bumpLaserCooldown: () => void
+
+  // ── Weapon loadout ────────────────────────────────────────────────────────
+  /** Weapon equipped on the left arm (L key). Defaults to laser. */
+  leftArmWeapon: WeaponType
+  /** Weapon equipped on the right arm (F key). Defaults to gun. */
+  rightArmWeapon: WeaponType
+  setLeftArmWeapon: (w: WeaponType) => void
+  setRightArmWeapon: (w: WeaponType) => void
 
   // ── Damage popups (floating hit numbers shown on successful hits) ──────────
   damagePopups: DamagePopup[]
@@ -96,12 +116,24 @@ export const useGameStore = create<GameStore>((set) => ({
 
   gunAmmo: GUN_MAX_AMMO,
   laserCharges: LASER_MAX_CHARGES,
+  rocketAmmo: ROCKET_MAX_AMMO,
   damageDealt: 0,
   score: 0,
   setGunAmmo: (n) => set({ gunAmmo: n }),
   setLaserCharges: (n) => set({ laserCharges: n }),
+  setRocketAmmo: (n) => set({ rocketAmmo: n }),
   addDamage: (n) => set((s) => ({ damageDealt: s.damageDealt + n })),
   addScore: (n) => set((s) => ({ score: s.score + n })),
+
+  gunCooldownKey: 0,
+  laserCooldownKey: 0,
+  bumpGunCooldown: () => set((s) => ({ gunCooldownKey: s.gunCooldownKey + 1 })),
+  bumpLaserCooldown: () => set((s) => ({ laserCooldownKey: s.laserCooldownKey + 1 })),
+
+  leftArmWeapon: 'laser',
+  rightArmWeapon: 'gun',
+  setLeftArmWeapon: (w) => set({ leftArmWeapon: w }),
+  setRightArmWeapon: (w) => set({ rightArmWeapon: w }),
 
   damagePopups: [],
   addDamagePopup: (amount, hitPos) =>

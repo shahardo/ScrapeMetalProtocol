@@ -454,6 +454,102 @@ html, body, #root {
   white-space: nowrap;
 }
 
+.garage-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Garage weapon loadout editor ────────────────────────────────────────── */
+.garage-weapons {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.garage-section-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--color-text);
+  opacity: 0.4;
+  margin-bottom: 10px;
+}
+
+.garage-weapon-slots {
+  display: flex;
+  gap: 20px;
+}
+
+.garage-weapon-slot {
+  flex: 1;
+}
+
+.garage-slot-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--color-text);
+  opacity: 0.5;
+  margin-bottom: 6px;
+}
+
+.garage-slot-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.garage-slot-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--color-text);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.15s;
+}
+
+.garage-slot-btn:hover {
+  opacity: 0.8;
+}
+
+.garage-slot-btn--gun.active {
+  border-color: #ffaa44;
+  color: #ffaa44;
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(255, 170, 68, 0.35);
+}
+
+.garage-slot-btn--laser.active {
+  border-color: #ff3344;
+  color: #ff3344;
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(255, 51, 68, 0.35);
+}
+
+.garage-slot-btn--shotgun.active {
+  border-color: #ff8800;
+  color: #ff8800;
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(255, 136, 0, 0.35);
+}
+
+.garage-slot-btn--rocket.active {
+  border-color: #ff4422;
+  color: #ff4422;
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(255, 68, 34, 0.35);
+}
+
+.garage-slot-btn--sniper.active {
+  border-color: #44ccff;
+  color: #44ccff;
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(68, 204, 255, 0.35);
+}
+
 /* ── Weapon HUD ───────────────────────────────────────────────────────────── */
 .weapon-hud {
   position: absolute;
@@ -513,6 +609,15 @@ html, body, #root {
   box-shadow: 0 0 4px #ff3344;
 }
 
+.weapon-pip--rocket {
+  color: #ff4422;
+}
+
+.weapon-pip--rocket.filled {
+  background: #ff4422;
+  box-shadow: 0 0 4px #ff4422;
+}
+
 .weapon-cooldown {
   font-size: 8px;
   letter-spacing: 0.1em;
@@ -520,6 +625,51 @@ html, body, #root {
   opacity: 0.35;
   width: 36px;
   text-align: left;
+}
+
+/* Cooldown bars — one per weapon, sit below the pip row */
+.weapon-cooldown-track {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: -4px;  /* pull up close to the pip row */
+  margin-bottom: 4px;
+}
+
+.weapon-cooldown-track--gun {
+  background: rgba(255, 170, 68, 0.18);
+}
+
+.weapon-cooldown-track--laser {
+  background: rgba(255, 51, 68, 0.18);
+}
+
+.weapon-cooldown-fill {
+  height: 100%;
+  border-radius: 2px;
+  animation: weapon-cooldown-refill linear forwards;
+}
+
+/* Fill in from 0→100% over the weapon's cooldown duration */
+@keyframes weapon-cooldown-refill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+.weapon-cooldown-fill--gun {
+  background: #ffaa44;
+  box-shadow: 0 0 4px #ffaa44;
+}
+
+.weapon-cooldown-fill--laser {
+  background: #ff3344;
+  box-shadow: 0 0 4px #ff3344;
+}
+
+/* Ready state (before first fire, or after cooldown completes) */
+.weapon-cooldown-fill--ready {
+  width: 100%;
 }
 
 /* ── Hull health bar (bottom-left, above score) ───────────────────────────── */

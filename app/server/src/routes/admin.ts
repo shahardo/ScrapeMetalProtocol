@@ -1,11 +1,11 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import { UserModel } from '../models/user.js'
 import { tryVerifyToken } from '../auth.js'
 
 /** Returns the verified admin payload, or sends 403 and returns null. */
 async function requireAdmin(
   authHeader: string | undefined,
-  reply: Parameters<Parameters<FastifyInstance['get']>[1]>[1],
+  reply: FastifyReply,
 ) {
   if (!authHeader?.startsWith('Bearer ')) {
     await reply.status(403).send({ error: 'Admin access required' })

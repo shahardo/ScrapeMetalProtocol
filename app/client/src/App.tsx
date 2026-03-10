@@ -61,7 +61,7 @@ export function App() {
           </span>
           <button className="hud-garage-btn hud-logout-btn" onClick={auth.logout}>LOGOUT</button>
           <span className="hud-controls">
-            W/S — Walk&nbsp;&nbsp;|&nbsp;&nbsp;A/D — Rotate&nbsp;&nbsp;|&nbsp;&nbsp;Space — Jump&nbsp;&nbsp;|&nbsp;&nbsp;↑↓←→ — Camera&nbsp;&nbsp;|&nbsp;&nbsp;F — Gun&nbsp;&nbsp;|&nbsp;&nbsp;L — Laser
+            W/S — Walk&nbsp;&nbsp;|&nbsp;&nbsp;A/D — Rotate&nbsp;&nbsp;|&nbsp;&nbsp;Space — Jump<br></br>↑↓←→ — Camera&nbsp;&nbsp;|&nbsp;&nbsp;Q — Left weapon&nbsp;&nbsp;|&nbsp;&nbsp;E — Right weapon
           </span>
         </div>
       </div>
@@ -70,7 +70,7 @@ export function App() {
       <GameCanvas authToken={auth.user.token} userId={auth.user.userId} />
 
       {/* ── Modals ───────────────────────────────────────────────────────── */}
-      {garageOpen   && <GarageModal onClose={() => setGarageOpen(false)} />}
+      {garageOpen   && <GarageModal onClose={() => setGarageOpen(false)} userId={auth.user.userId} />}
       {scoreOpen    && <ScoreboardModal onClose={() => setScoreOpen(false)} />}
       {adminOpen && auth.user.isAdmin && (
         <AdminConsole token={auth.user.token} onClose={() => setAdminOpen(false)} />

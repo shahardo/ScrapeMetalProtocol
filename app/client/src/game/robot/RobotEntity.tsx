@@ -10,6 +10,7 @@ import { useControls } from '../useControls'
 import { WeaponSystem, type WeaponEvent } from '../weapons/WeaponSystem'
 import { useGameStore } from '../../store/gameStore'
 import type { RobotSnapshot } from '../../types/game'
+import type { BotInput } from '../../types/bot'
 
 // ── Movement constants ────────────────────────────────────────────────────────
 const WALK_SPEED   = 5    // m/s
@@ -141,6 +142,13 @@ interface RobotEntityProps {
   startPosition?: [number, number, number]
   /** Called at ~20 Hz with the chassis physics state; used to send snapshots over WebRTC. */
   onSnapshot?: (snap: RobotSnapshot) => void
+  /**
+   * When provided and isBotActive is true, the bot's latest input overrides
+   * keyboard controls every frame. Read via ref so the game loop stays off
+   * the React render path.
+   */
+  botInputRef?: RefObject<BotInput>
+  isBotActive?: boolean
 }
 
 /**
@@ -156,6 +164,8 @@ export function RobotEntity({
   color = '#4a8aaa',
   startPosition = [0, 2, 0],
   onSnapshot,
+  botInputRef,
+  isBotActive = false,
 }: RobotEntityProps) {
   const chassisRef = useRef<RapierRigidBody>(null)
   const controls   = useControls()
@@ -174,8 +184,13 @@ export function RobotEntity({
   useFrame((_, delta) => {
     const rb = chassisRef.current
     if (!rb) return
-    const c = controls.current
-    if (!c) return
+    const keyboard = controls.current
+    if (!keyboard) return
+
+    // When a bot is active its input fully replaces keyboard input.
+    // The bot BotInput fields align 1:1 with Controls boolean names.
+    const bot = isBotActive ? botInputRef?.current : null
+    const c = bot ?? keyboard
 
     // ── Rotation ─────────────────────────────────────────────────────────
     if (c.left)  facingAngle.current += ROT_SPEED * delta

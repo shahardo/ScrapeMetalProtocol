@@ -7,8 +7,8 @@ export interface Controls {
   right: boolean     // D — rotate right
   jump: boolean      // Space — jump
   attack: boolean    // J / Z — attack
-  fireGun: boolean   // F — fire gun
-  fireLaser: boolean // L — fire laser
+  fireGun: boolean   // E — fire right-arm weapon
+  fireLaser: boolean // Q — fire left-arm weapon
 }
 
 /**
@@ -44,8 +44,8 @@ export function useControls(): React.RefObject<Controls> {
         case 'Space': controls.current.jump    = true;  break
         case 'KeyJ':
         case 'KeyZ': controls.current.attack     = true;  break
-        case 'KeyF': controls.current.fireGun    = true;  break
-        case 'KeyL': controls.current.fireLaser  = true;  break
+        case 'KeyE': controls.current.fireGun    = true;  break
+        case 'KeyQ': controls.current.fireLaser  = true;  break
       }
     }
 
@@ -58,8 +58,8 @@ export function useControls(): React.RefObject<Controls> {
         case 'Space': controls.current.jump      = false; break
         case 'KeyJ':
         case 'KeyZ': controls.current.attack     = false; break
-        case 'KeyF': controls.current.fireGun    = false; break
-        case 'KeyL': controls.current.fireLaser  = false; break
+        case 'KeyE': controls.current.fireGun    = false; break
+        case 'KeyQ': controls.current.fireLaser  = false; break
       }
     }
 

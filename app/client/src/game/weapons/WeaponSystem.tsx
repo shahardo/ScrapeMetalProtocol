@@ -9,7 +9,7 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier'
 import { rotateByQuat } from '../robot/RobotEntity'
-import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES } from '../../store/gameStore'
+import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, ROCKET_MAX_AMMO } from '../../store/gameStore'
 import { playGunShot, playLaserShot, playHitConfirm } from './sounds'
 import type { Controls } from '../useControls'
 import type { WeaponType } from '../../types/game'
@@ -25,17 +25,34 @@ const SPARK_SPEED_MAX = 6.0
 // ── Weapon constants ──────────────────────────────────────────────────────────
 
 const GUN_COOLDOWN       = 0.7    // seconds between shots
+const SHOTGUN_COOLDOWN   = 1.1    // seconds — fires 3 pellets in a spread
+const ROCKET_COOLDOWN    = 2.2    // seconds — slow heavy projectile
 const LASER_COOLDOWN     = 1.5    // seconds between laser pulses
+const SNIPER_COOLDOWN    = 3.5    // seconds — long-range precision beam
+
 const BULLET_SPEED       = 18     // m/s
+const ROCKET_SPEED       = 9      // m/s — noticeably slower than bullets
 const BULLET_TTL         = 3.5    // seconds before auto-despawn
+const ROCKET_TTL         = 4.0    // seconds before auto-despawn
+
 const GUN_DAMAGE         = 25     // damage per bullet hit
+const SHOTGUN_DAMAGE     = 18     // damage per pellet (×3 pellets = 54 max if all land)
+const ROCKET_DAMAGE      = 60     // high single-hit damage
 const LASER_DAMAGE       = 40     // damage per laser hit
-const LASER_RANGE        = 15     // maximum raycast distance (metres)
+const SNIPER_DAMAGE      = 80     // long-range precision damage
+
+const LASER_RANGE        = 15     // maximum laser raycast distance (metres)
+const SNIPER_RANGE       = 30     // double the laser range
 const LASER_DISPLAY      = 0.22   // seconds the beam stays visible
+const SNIPER_DISPLAY     = 0.35   // slightly longer beam flash for visual clarity
 
 // Ammo recharge rates
-const GUN_RELOAD_RATE    = 2.5    // seconds per bullet reloaded
-const LASER_RECHARGE_RATE = 3.0  // seconds per charge regenerated
+const GUN_RELOAD_RATE      = 2.5  // seconds per bullet reloaded
+const LASER_RECHARGE_RATE  = 3.0  // seconds per charge regenerated
+const ROCKET_RELOAD_RATE   = 5.0  // seconds per rocket reloaded (slow)
+
+// Shotgun fires 3 pellets at ±SHOTGUN_SPREAD radians from aim direction
+const SHOTGUN_SPREAD   = 0.18   // radians
 
 // Local-space emitter offsets from chassis center
 const GUN_BARREL:    [number, number, number] = [ 0.6, 0.15, 0]  // right arm
@@ -54,6 +71,8 @@ interface BulletData {
   id: string
   spawnPos: [number, number, number]
   velocity: [number, number, number]
+  /** Time-to-live in seconds. Defaults to BULLET_TTL if omitted. */
+  ttl?: number
 }
 
 interface LaserBeamState {
@@ -160,10 +179,11 @@ interface BulletProps {
   id: string
   spawnPos: [number, number, number]
   velocity: [number, number, number]
+  ttl?: number
   onExpire: (id: string, wasHit: boolean, pos?: [number, number, number]) => void
 }
 
-function Bullet({ id, spawnPos, velocity, onExpire }: BulletProps) {
+function Bullet({ id, spawnPos, velocity, ttl = BULLET_TTL, onExpire }: BulletProps) {
   const rbRef          = useRef<RapierRigidBody>(null)
   const ageRef         = useRef(0)
   const liveRef        = useRef(false)   // grace period: ignore collisions for 80 ms
@@ -189,7 +209,7 @@ function Bullet({ id, spawnPos, velocity, onExpire }: BulletProps) {
 
     ageRef.current += delta
     if (!liveRef.current && ageRef.current > 0.08) liveRef.current = true
-    if (ageRef.current > BULLET_TTL) safeExpire(false)
+    if (ageRef.current > ttl) safeExpire(false)
   })
 
   return (
@@ -250,7 +270,8 @@ export function WeaponSystem({
 }: WeaponSystemProps) {
   const { rapier, world } = useRapier()
 
-  const { gunAmmo, laserCharges, setGunAmmo, setLaserCharges, addDamage, addScore } = useGameStore()
+  // All weapon state reads go through getState() in useFrame to avoid stale closures.
+  const { addDamage, addScore } = useGameStore()
 
   const [bullets,     setBullets]     = useState<BulletData[]>([])
   const [laserBeam,   setLaserBeam]   = useState<LaserBeamState | null>(null)
@@ -265,18 +286,27 @@ export function WeaponSystem({
   const muzzleExpiresAt = useRef(0)
 
   // Recharge timers — count up toward reload threshold
-  const gunReloadTimer     = useRef(0)
-  const laserRechargeTimer = useRef(0)
+  const gunReloadTimer      = useRef(0)
+  const laserRechargeTimer  = useRef(0)
+  const rocketReloadTimer   = useRef(0)
+
+  // Each bullet/rocket stores the damage it deals so the expiry callback
+  // can report the correct amount regardless of weapon type.
+  const bulletDamageMap = useRef<Map<string, number>>(new Map())
 
   const expireBullet = useCallback((bulletId: string, wasHit: boolean, pos?: [number, number, number]) => {
     setBullets((prev) => prev.filter((b) => b.id !== bulletId))
     if (wasHit && pos) {
-      addDamage(GUN_DAMAGE)
+      const dmg = bulletDamageMap.current.get(bulletId) ?? GUN_DAMAGE
+      bulletDamageMap.current.delete(bulletId)
+      addDamage(dmg)
       addScore(1)
       playHitConfirm()
-      useGameStore.getState().addDamagePopup(GUN_DAMAGE, pos)
+      useGameStore.getState().addDamagePopup(dmg, pos)
       setSparkBursts((prev) => [...prev, makeSparkBurst(pos)])
-      onWeaponHit?.('gun', pos, GUN_DAMAGE)
+      onWeaponHit?.('gun', pos, dmg)
+    } else {
+      bulletDamageMap.current.delete(bulletId)
     }
   }, [addDamage, addScore, onWeaponHit])
 
@@ -285,7 +315,7 @@ export function WeaponSystem({
     const c  = controls.current
     if (!rb || !c) return
 
-    const θ  = facingAngleRef.current
+    const θ  = facingAngleRef.current ?? 0
     const cp = rb.translation()
     const cr = rb.rotation()
 
@@ -311,6 +341,16 @@ export function WeaponSystem({
       gunReloadTimer.current = 0
     }
 
+    if (state.rocketAmmo < ROCKET_MAX_AMMO) {
+      rocketReloadTimer.current += delta
+      if (rocketReloadTimer.current >= ROCKET_RELOAD_RATE) {
+        rocketReloadTimer.current = 0
+        state.setRocketAmmo(Math.min(state.rocketAmmo + 1, ROCKET_MAX_AMMO))
+      }
+    } else {
+      rocketReloadTimer.current = 0
+    }
+
     if (state.laserCharges < LASER_MAX_CHARGES) {
       laserRechargeTimer.current += delta
       if (laserRechargeTimer.current >= LASER_RECHARGE_RATE) {
@@ -332,110 +372,203 @@ export function WeaponSystem({
       setMuzzleFlash(null)
     }
 
-    // ── Gun (F key) ─────────────────────────────────────────────────────────
+    // ── Shared helpers ────────────────────────────────────────────────────────
+
+    /** Spawns a single bullet from a world-space emitter point.
+     *  dirOverride lets shotgun pellets spread around the aim vector. */
+    const spawnBullet = (
+      emitter: { x: number; y: number; z: number },
+      bDirX: number,
+      bDirZ: number,
+      speed: number,
+      damage: number,
+      ttl: number = BULLET_TTL,
+    ) => {
+      const id = crypto.randomUUID()
+      const spawnPos: [number, number, number] = [
+        emitter.x + bDirX * 0.4, emitter.y, emitter.z + bDirZ * 0.4,
+      ]
+      bulletDamageMap.current.set(id, damage)
+      setBullets((prev) => [
+        ...prev,
+        { id, spawnPos, velocity: [bDirX * speed, 0.5, bDirZ * speed], ttl },
+      ])
+    }
+
+    /** Fires a single standard bullet (gun). */
+    const doFireGun = (emitter: { x: number; y: number; z: number }) => {
+      const s = useGameStore.getState()
+      if (s.gunAmmo <= 0) return
+      s.setGunAmmo(s.gunAmmo - 1)
+      gunReloadTimer.current = 0
+
+      const spawnPos: [number, number, number] = [emitter.x + dirX * 0.4, emitter.y, emitter.z + dirZ * 0.4]
+      const flashExpiresAt = now + 120
+      muzzleExpiresAt.current = flashExpiresAt
+      setMuzzleFlash({ pos: spawnPos, expiresAt: flashExpiresAt, type: 'gun' })
+      spawnBullet(emitter, dirX, dirZ, BULLET_SPEED, GUN_DAMAGE)
+      playGunShot()
+      onWeaponFired?.({ type: 'gun', origin: spawnPos, dir: [dirX, 0, dirZ] })
+    }
+
+    /** Fires 3 spread pellets (shotgun). Consumes 1 gunAmmo. */
+    const doFireShotgun = (emitter: { x: number; y: number; z: number }) => {
+      const s = useGameStore.getState()
+      if (s.gunAmmo <= 0) return
+      s.setGunAmmo(s.gunAmmo - 1)
+      gunReloadTimer.current = 0
+
+      // Wide muzzle flash
+      const spawnPos: [number, number, number] = [emitter.x + dirX * 0.4, emitter.y, emitter.z + dirZ * 0.4]
+      const flashExpiresAt = now + 140
+      muzzleExpiresAt.current = flashExpiresAt
+      setMuzzleFlash({ pos: spawnPos, expiresAt: flashExpiresAt, type: 'gun' })
+
+      // Spawn 3 pellets with angular spread
+      const angles = [-SHOTGUN_SPREAD, 0, SHOTGUN_SPREAD]
+      for (const spread of angles) {
+        const cos = Math.cos(spread)
+        const sin = Math.sin(spread)
+        const pDirX = dirX * cos - dirZ * sin
+        const pDirZ = dirX * sin + dirZ * cos
+        spawnBullet(emitter, pDirX, pDirZ, BULLET_SPEED, SHOTGUN_DAMAGE)
+      }
+      playGunShot()
+      onWeaponFired?.({ type: 'shotgun', origin: spawnPos, dir: [dirX, 0, dirZ] })
+    }
+
+    /** Fires a slow heavy rocket. Consumes 1 rocketAmmo. */
+    const doFireRocket = (emitter: { x: number; y: number; z: number }) => {
+      const s = useGameStore.getState()
+      if (s.rocketAmmo <= 0) return
+      s.setRocketAmmo(s.rocketAmmo - 1)
+      rocketReloadTimer.current = 0
+
+      const spawnPos: [number, number, number] = [emitter.x + dirX * 0.5, emitter.y, emitter.z + dirZ * 0.5]
+      const flashExpiresAt = now + 200
+      muzzleExpiresAt.current = flashExpiresAt
+      setMuzzleFlash({ pos: spawnPos, expiresAt: flashExpiresAt, type: 'gun' })
+      spawnBullet(emitter, dirX, dirZ, ROCKET_SPEED, ROCKET_DAMAGE, ROCKET_TTL)
+      playGunShot()   // reuse sound for now
+      onWeaponFired?.({ type: 'rocket', origin: spawnPos, dir: [dirX, 0, dirZ] })
+    }
+
+    /** Fires an instant raycast beam. Used by both laser and sniper. */
+    const doFireBeam = (
+      origin: { x: number; y: number; z: number },
+      range: number,
+      damage: number,
+      displayMs: number,
+      type: 'laser' | 'sniper',
+    ) => {
+      const s = useGameStore.getState()
+      if (s.laserCharges <= 0) return
+      // Sniper costs 2 charges per shot; laser costs 1.
+      const cost = type === 'sniper' ? 2 : 1
+      if (s.laserCharges < cost) return
+      s.setLaserCharges(s.laserCharges - cost)
+      laserRechargeTimer.current = 0
+
+      const ray = new rapier.Ray(origin, { x: dirX, y: 0, z: dirZ })
+      // Filter: ray acts as group-0 member, colliding with groups 1-15.
+      // Skips the firing robot's own colliders (group 0) so the arm tip doesn't self-hit.
+      const RAY_FILTER = interactionGroups(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+      const hit = world.castRay(ray, range, true, undefined, RAY_FILTER)
+      const dist = hit ? hit.timeOfImpact : range
+
+      // Enemy membership: group-1 bodies (RemoteRobotEntity) have bit 1 set in upper 16 bits
+      const ENEMY_MEMBERSHIP = 1 << (16 + 1)
+      const hitEnemy = hit != null && (hit.collider.collisionGroups() & ENEMY_MEMBERSHIP) !== 0
+
+      if (hitEnemy) {
+        addDamage(damage)
+        addScore(type === 'sniper' ? 3 : 2)
+        playHitConfirm()
+        const hitPos: [number, number, number] = [origin.x + dirX * dist, origin.y, origin.z + dirZ * dist]
+        useGameStore.getState().addDamagePopup(damage, hitPos)
+        setSparkBursts((prev) => [...prev, makeSparkBurst(hitPos)])
+        onWeaponHit?.(type, hitPos, damage)
+      }
+
+      const beamExpiresAt = now + displayMs
+      laserExpiresAt.current = beamExpiresAt
+      setLaserBeam({
+        midPos: [origin.x + dirX * dist / 2, origin.y, origin.z + dirZ * dist / 2],
+        length: dist,
+        angleY: θ,
+        expiresAt: beamExpiresAt,
+        // Sniper beam is blue, laser is red — reuse hitEnemy flag but add weapon type
+        hitEnemy: type === 'sniper' ? false : hitEnemy,   // sniper always draws blue regardless of hit
+      })
+
+      const flashExpiresAt = now + 200
+      muzzleExpiresAt.current = flashExpiresAt
+      setMuzzleFlash({ pos: [origin.x, origin.y, origin.z], expiresAt: flashExpiresAt, type: 'laser' })
+      playLaserShot()
+      onWeaponFired?.({ type, origin: [origin.x, origin.y, origin.z], dir: [dirX, 0, dirZ], dist })
+    }
+
+    const doFireLaser  = (o: { x: number; y: number; z: number }) =>
+      doFireBeam(o, LASER_RANGE, LASER_DAMAGE, LASER_DISPLAY * 1000, 'laser')
+    const doFireSniper = (o: { x: number; y: number; z: number }) =>
+      doFireBeam(o, SNIPER_RANGE, SNIPER_DAMAGE, SNIPER_DISPLAY * 1000, 'sniper')
+
+    /** Returns the cooldown duration for a weapon type. */
+    const weaponCooldown = (w: WeaponType) => {
+      if (w === 'gun')     return GUN_COOLDOWN
+      if (w === 'shotgun') return SHOTGUN_COOLDOWN
+      if (w === 'rocket')  return ROCKET_COOLDOWN
+      if (w === 'laser')   return LASER_COOLDOWN
+      return SNIPER_COOLDOWN  // sniper
+    }
+
+    /** Dispatches fire to the appropriate helper given a weapon type and emitter. */
+    const fireWeapon = (w: WeaponType, arm: { x: number; y: number; z: number }) => {
+      if (w === 'gun')     doFireGun(arm)
+      if (w === 'shotgun') doFireShotgun(arm)
+      if (w === 'rocket')  doFireRocket(arm)
+      if (w === 'laser')   doFireLaser(arm)
+      if (w === 'sniper')  doFireSniper(arm)
+    }
+
+    /** True if the given weapon has ammo. */
+    const hasAmmoFor = (w: WeaponType) => {
+      const s = useGameStore.getState()
+      if (w === 'gun' || w === 'shotgun') return s.gunAmmo > 0
+      if (w === 'rocket')                 return s.rocketAmmo > 0
+      if (w === 'laser')                  return s.laserCharges > 0
+      return s.laserCharges >= 2  // sniper costs 2
+    }
+
+    // ── Right arm (E key) — fires the weapon assigned to rightArmWeapon ───────
     if (c.fireGun) {
       const canFire = !gunConsumed.current && gunCooldown.current === 0
-      if (canFire && useGameStore.getState().gunAmmo > 0) {
-        gunCooldown.current = GUN_COOLDOWN
-        gunConsumed.current = true
-        state.setGunAmmo(useGameStore.getState().gunAmmo - 1)
-        gunReloadTimer.current = 0   // reset reload timer on fire
-
-        const [bx, by, bz] = rotateByQuat(GUN_BARREL, cr)
-        const spawnPos: [number, number, number] = [
-          cp.x + bx + dirX * 0.4,
-          cp.y + by,
-          cp.z + bz + dirZ * 0.4,
-        ]
-
-        // Muzzle flash at barrel
-        const flashExpiresAt = now + 120
-        muzzleExpiresAt.current = flashExpiresAt
-        setMuzzleFlash({ pos: spawnPos, expiresAt: flashExpiresAt, type: 'gun' })
-
-        setBullets((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            spawnPos,
-            velocity: [dirX * BULLET_SPEED, 0.5, dirZ * BULLET_SPEED],
-          },
-        ])
-
-        playGunShot()
-        onWeaponFired?.({ type: 'gun', origin: spawnPos, dir: [dirX, 0, dirZ] })
+      if (canFire) {
+        const weapon = useGameStore.getState().rightArmWeapon
+        if (hasAmmoFor(weapon)) {
+          gunCooldown.current = weaponCooldown(weapon)
+          gunConsumed.current = true
+          useGameStore.getState().bumpGunCooldown()
+          const [bx, by, bz] = rotateByQuat(GUN_BARREL, cr)
+          fireWeapon(weapon, { x: cp.x + bx, y: cp.y + by, z: cp.z + bz })
+        }
       }
     } else {
       gunConsumed.current = false
     }
 
-    // ── Laser (L key) ────────────────────────────────────────────────────────
+    // ── Left arm (Q key) — fires the weapon assigned to leftArmWeapon ─────────
     if (c.fireLaser) {
       const canFire = !laserConsumed.current && laserCooldown.current === 0
-      if (canFire && useGameStore.getState().laserCharges > 0) {
-        laserCooldown.current = LASER_COOLDOWN
-        laserConsumed.current = true
-        state.setLaserCharges(useGameStore.getState().laserCharges - 1)
-        laserRechargeTimer.current = 0
-
-        const [ex, ey, ez] = rotateByQuat(LASER_EMITTER, cr)
-        const origin = { x: cp.x + ex, y: cp.y + ey, z: cp.z + ez }
-
-        const ray = new rapier.Ray(origin, { x: dirX, y: 0, z: dirZ })
-        // Filter: ray acts as group-0 member colliding with groups 1-15.
-        // This skips the player's own colliders (also group 0) so the ray
-        // doesn't immediately hit the arm the emitter is sitting inside.
-        const RAY_FILTER = interactionGroups(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
-        const hit = world.castRay(ray, LASER_RANGE, true, undefined, RAY_FILTER)
-        const dist = hit ? hit.timeOfImpact : LASER_RANGE
-
-        // Check if the ray hit the enemy (group 1: membership bit 1 in upper 16 bits)
-        const ENEMY_MEMBERSHIP = 1 << (16 + 1)
-        const hitEnemy = hit != null &&
-          (hit.collider.collisionGroups() & ENEMY_MEMBERSHIP) !== 0
-
-        if (hitEnemy) {
-          addDamage(LASER_DAMAGE)
-          addScore(2)
-          playHitConfirm()
-          const hitPos: [number, number, number] = [
-            origin.x + dirX * dist,
-            origin.y,
-            origin.z + dirZ * dist,
-          ]
-          useGameStore.getState().addDamagePopup(LASER_DAMAGE, hitPos)
-          setSparkBursts((prev) => [...prev, makeSparkBurst(hitPos)])
-          onWeaponHit?.('laser', hitPos, LASER_DAMAGE)
+      if (canFire) {
+        const weapon = useGameStore.getState().leftArmWeapon
+        if (hasAmmoFor(weapon)) {
+          laserCooldown.current = weaponCooldown(weapon)
+          laserConsumed.current = true
+          useGameStore.getState().bumpLaserCooldown()
+          const [ex, ey, ez] = rotateByQuat(LASER_EMITTER, cr)
+          fireWeapon(weapon, { x: cp.x + ex, y: cp.y + ey, z: cp.z + ez })
         }
-
-        const beamExpiresAt = now + LASER_DISPLAY * 1000
-        laserExpiresAt.current = beamExpiresAt
-
-        setLaserBeam({
-          midPos: [
-            origin.x + dirX * dist / 2,
-            origin.y,
-            origin.z + dirZ * dist / 2,
-          ],
-          length: dist,
-          angleY: θ,
-          expiresAt: beamExpiresAt,
-          hitEnemy,
-        })
-
-        // Muzzle flash at emitter
-        const flashPos: [number, number, number] = [origin.x, origin.y, origin.z]
-        const flashExpiresAt = now + 200
-        muzzleExpiresAt.current = flashExpiresAt
-        setMuzzleFlash({ pos: flashPos, expiresAt: flashExpiresAt, type: 'laser' })
-
-        playLaserShot()
-        onWeaponFired?.({
-          type: 'laser',
-          origin: [origin.x, origin.y, origin.z],
-          dir: [dirX, 0, dirZ],
-          dist,
-        })
       }
     } else {
       laserConsumed.current = false

@@ -6,7 +6,10 @@
       "Bash(npm run test -w app/server)",
       "Bash(npm test)",
       "Bash(npm run lint)",
-      "Bash(npm run test --workspace=app/client)"
+      "Bash(npm run test --workspace=app/client)",
+      "Bash(npm run lint -w app/server)",
+      "Bash(grep -v \"^$\")",
+      "Bash(npm run lint -w app/client)"
     ]
   }
 }

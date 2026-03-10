@@ -37,7 +37,8 @@ export function Robot({ color = '#5a8a9a', startPosition = [0, 2, 0] }: RobotPro
 
   useFrame(() => {
     const rb = rigidBodyRef.current
-    if (!rb) return
+    const c = controls.current
+    if (!rb || !c) return
 
     const vel = rb.linvel()
     const pos = rb.translation()
@@ -52,8 +53,8 @@ export function Robot({ color = '#5a8a9a', startPosition = [0, 2, 0] }: RobotPro
 
     // ── Horizontal movement ─────────────────────────────────────────────────
     let targetVelX = 0
-    if (controls.current.left) targetVelX -= WALK_SPEED
-    if (controls.current.right) targetVelX += WALK_SPEED
+    if (c.left) targetVelX -= WALK_SPEED
+    if (c.right) targetVelX += WALK_SPEED
 
     // Override X velocity directly — gives arcade-style instant response
     rb.setLinvel({ x: targetVelX, y: vel.y, z: 0 }, true)
@@ -61,13 +62,13 @@ export function Robot({ color = '#5a8a9a', startPosition = [0, 2, 0] }: RobotPro
     // ── Jumping ─────────────────────────────────────────────────────────────
     const isGrounded = groundContacts.current > 0
 
-    if (controls.current.jump && isGrounded && !jumpConsumed.current) {
+    if (c.jump && isGrounded && !jumpConsumed.current) {
       rb.applyImpulse({ x: 0, y: JUMP_IMPULSE, z: 0 }, true)
       jumpConsumed.current = true
     }
 
     // Reset the latch when the player releases the jump key
-    if (!controls.current.jump) {
+    if (!c.jump) {
       jumpConsumed.current = false
     }
   })

@@ -1,39 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
-import type { GarageRobot, RobotPart, PartType } from '../../types/game'
+import { useEffect, useState } from 'react'
+import type { GarageRobot, RobotPart, PartType, WeaponType } from '../../types/game'
+import { useGameStore } from '../../store/gameStore'
+import { ALL_WEAPON_TYPES, WEAPON_LABEL } from '../weapons/weaponRegistry'
 
 const API = 'http://localhost:3001'
 
-// ── Default robot config saved when the user clicks "Save Current" ────────────
-// Reflects the current RobotEntity layout. In Sprint 9+ the Garage editor will
-// let players customise parts; for now we persist the baseline build.
-const DEFAULT_PARTS: RobotPart[] = [
-  { id: 'chassis', type: 'chassis' as PartType, health: 100, maxHealth: 100, weight: 30, armor: 10, isDetached: false },
-  { id: 'head',    type: 'head'    as PartType, health: 100, maxHealth: 100, weight: 5,  armor: 5,  isDetached: false },
-  { id: 'arm-l',   type: 'arm-left'  as PartType, health: 100, maxHealth: 100, weight: 8,  armor: 3,  isDetached: false },
-  { id: 'arm-r',   type: 'arm-right' as PartType, health: 100, maxHealth: 100, weight: 8,  armor: 3,  isDetached: false },
-]
-
-// ── Persistent user identity ──────────────────────────────────────────────────
-// No auth yet (Sprint 9+). A random UUID is generated once and stored in
-// localStorage so garage data persists across browser sessions on the same machine.
-function getUserId(): string {
-  const key = 'smp:userId'
-  let id = localStorage.getItem(key)
-  if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem(key, id)
-  }
-  return id
+/** Builds the parts array from the current store weapon loadout. */
+function buildParts(leftWeapon: WeaponType, rightWeapon: WeaponType): RobotPart[] {
+  return [
+    { id: 'chassis', type: 'chassis'   as PartType, health: 100, maxHealth: 100, weight: 30, armor: 10, isDetached: false },
+    { id: 'head',    type: 'head'      as PartType, health: 100, maxHealth: 100, weight: 5,  armor: 5,  isDetached: false },
+    { id: 'arm-l',   type: 'arm-left'  as PartType, health: 100, maxHealth: 100, weight: 8,  armor: 3,  isDetached: false, weaponSlot: leftWeapon },
+    { id: 'arm-r',   type: 'arm-right' as PartType, health: 100, maxHealth: 100, weight: 8,  armor: 3,  isDetached: false, weaponSlot: rightWeapon },
+  ]
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface GarageModalProps {
   onClose: () => void
+  /** Authenticated user's DB id — used as the garage partition key. */
+  userId: string
 }
 
-export function GarageModal({ onClose }: GarageModalProps) {
-  const userId = useRef(getUserId())
+export function GarageModal({ onClose, userId }: GarageModalProps) {
 
   const [robots,   setRobots]   = useState<GarageRobot[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -41,13 +31,15 @@ export function GarageModal({ onClose }: GarageModalProps) {
   const [saveName, setSaveName] = useState('')
   const [saving,   setSaving]   = useState(false)
 
+  const { leftArmWeapon, rightArmWeapon, setLeftArmWeapon, setRightArmWeapon } = useGameStore()
+
   // ── Load saved robots ────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
 
-    fetch(`${API}/garage/${userId.current}`)
+    fetch(`${API}/garage/${userId}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Server error ${r.status}`)
         return r.json() as Promise<{ robots: GarageRobot[] }>
@@ -59,7 +51,7 @@ export function GarageModal({ onClose }: GarageModalProps) {
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [])
+  }, [userId])
 
   // ── Save current robot ───────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -67,10 +59,10 @@ export function GarageModal({ onClose }: GarageModalProps) {
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch(`${API}/garage/${userId.current}`, {
+      const res = await fetch(`${API}/garage/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: saveName.trim(), parts: DEFAULT_PARTS }),
+        body: JSON.stringify({ name: saveName.trim(), parts: buildParts(leftArmWeapon, rightArmWeapon) }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const { robot } = await res.json() as { robot: GarageRobot }
@@ -83,11 +75,19 @@ export function GarageModal({ onClose }: GarageModalProps) {
     }
   }
 
+  // ── Load robot — restores weapon loadout from a saved config ─────────────────
+  const handleLoad = (robot: GarageRobot) => {
+    const leftArm  = robot.parts.find((p) => p.type === 'arm-left')
+    const rightArm = robot.parts.find((p) => p.type === 'arm-right')
+    if (leftArm?.weaponSlot)  setLeftArmWeapon(leftArm.weaponSlot)
+    if (rightArm?.weaponSlot) setRightArmWeapon(rightArm.weaponSlot)
+  }
+
   // ── Delete robot ─────────────────────────────────────────────────────────────
   const handleDelete = async (robotId: string) => {
     setError(null)
     try {
-      const res = await fetch(`${API}/garage/${userId.current}/${robotId}`, { method: 'DELETE' })
+      const res = await fetch(`${API}/garage/${userId}/${robotId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       setRobots((prev) => prev.filter((r) => r._id !== robotId))
     } catch (e: unknown) {
@@ -103,6 +103,43 @@ export function GarageModal({ onClose }: GarageModalProps) {
         <div className="garage-header">
           <span className="garage-title">GARAGE</span>
           <button className="garage-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* ── Weapon loadout editor ────────────────────────────────────── */}
+        <div className="garage-weapons">
+          <span className="garage-section-label">WEAPON LOADOUT</span>
+          <div className="garage-weapon-slots">
+            <div className="garage-weapon-slot">
+              <span className="garage-slot-label">L ARM (L key)</span>
+              <div className="garage-slot-btns">
+                {ALL_WEAPON_TYPES.map((w) => (
+                  <button
+                    key={w}
+                    className={`garage-slot-btn${leftArmWeapon === w ? ' active' : ''} garage-slot-btn--${w}`}
+                    onClick={() => setLeftArmWeapon(w)}
+                    title={WEAPON_LABEL[w]}
+                  >
+                    {WEAPON_LABEL[w]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="garage-weapon-slot">
+              <span className="garage-slot-label">R ARM (F key)</span>
+              <div className="garage-slot-btns">
+                {ALL_WEAPON_TYPES.map((w) => (
+                  <button
+                    key={w}
+                    className={`garage-slot-btn${rightArmWeapon === w ? ' active' : ''} garage-slot-btn--${w}`}
+                    onClick={() => setRightArmWeapon(w)}
+                    title={WEAPON_LABEL[w]}
+                  >
+                    {WEAPON_LABEL[w]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ── Save current robot ───────────────────────────────────────── */}
@@ -137,9 +174,10 @@ export function GarageModal({ onClose }: GarageModalProps) {
             <div key={robot._id} className="garage-row">
               <span className="garage-robot-name">{robot.name}</span>
               <span className="garage-robot-meta">{robot.parts.length} parts</span>
-              <button className="garage-btn garage-btn--danger" onClick={() => void handleDelete(robot._id)}>
-                DELETE
-              </button>
+              <div className="garage-row-actions">
+                <button className="garage-btn" onClick={() => handleLoad(robot)}>LOAD</button>
+                <button className="garage-btn garage-btn--danger" onClick={() => void handleDelete(robot._id)}>DELETE</button>
+              </div>
             </div>
           ))}
         </div>

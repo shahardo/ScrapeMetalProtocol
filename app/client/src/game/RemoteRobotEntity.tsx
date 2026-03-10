@@ -121,7 +121,8 @@ export function RemoteRobotEntity({
   const [laserEffect,   setLaserEffect]   = useState<LaserEffectData | null>(null)
   const [sparkBursts,   setSparkBursts]   = useState<SparkBurstData[]>([])
 
-  const addDamagePopup = useGameStore((s) => s.addDamagePopup)
+  const addDamagePopup      = useGameStore((s) => s.addDamagePopup)
+  const damagePlayerChassis = useGameStore((s) => s.damagePlayerChassis)
 
   const expireBullet = useCallback((id: number) => {
     setRemoteBullets((prev) => prev.filter((b) => b.id !== id))
@@ -142,6 +143,7 @@ export function RemoteRobotEntity({
       const burst = makeSparkBurst(whit.hitPos)
       setSparkBursts((prev) => [...prev, burst])
       addDamagePopup(whit.damage, whit.hitPos)
+      damagePlayerChassis(whit.damage)
     }
 
     // Consume weapon event.

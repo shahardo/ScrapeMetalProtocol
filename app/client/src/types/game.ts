@@ -11,7 +11,7 @@ export type PartType =
   | 'weapon'
 
 /** Weapon types available to robots. */
-export type WeaponType = 'gun' | 'laser'
+export type WeaponType = 'gun' | 'laser' | 'shotgun' | 'rocket' | 'sniper'
 
 /** A single modular component that makes up a robot. */
 export interface RobotPart {
@@ -24,6 +24,11 @@ export interface RobotPart {
   /** Reduces incoming damage to this part. */
   armor: number
   isDetached: boolean
+  /**
+   * For arm parts: which weapon is mounted in this slot.
+   * Absent on non-arm parts.
+   */
+  weaponSlot?: WeaponType
 }
 
 /** Full robot configuration as stored in the Garage / DB. */

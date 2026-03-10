@@ -6,7 +6,7 @@ import { Arena } from './Arena'
 import { RobotEntity } from './robot/RobotEntity'
 import { RemoteRobotEntity } from './RemoteRobotEntity'
 import { useNetworking } from '../network/useNetworking'
-import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, CHASSIS_MAX_HEALTH } from '../store/gameStore'
+import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, ROCKET_MAX_AMMO, CHASSIS_MAX_HEALTH } from '../store/gameStore'
 
 // ── React Error Boundary ──────────────────────────────────────────────────────
 
@@ -125,7 +125,7 @@ function HealthBar() {
 
   return (
     <div className="health-bar-container">
-      <span className="health-bar-label">HULL</span>
+      <span className="health-bar-label">HEALTH</span>
       <div className="health-bar-track">
         <div
           className="health-bar-fill"
@@ -185,12 +185,17 @@ function ScoreHUD() {
   )
 }
 
+// GUN_COOLDOWN and LASER_COOLDOWN durations must match WeaponSystem constants.
+// They drive the CSS animation-duration so the bar fills in sync with the timer.
+const GUN_COOLDOWN_S   = 0.7
+const LASER_COOLDOWN_S = 1.5
+
 function WeaponHUD() {
-  const { gunAmmo, laserCharges } = useGameStore()
+  const { gunAmmo, laserCharges, rocketAmmo, gunCooldownKey, laserCooldownKey } = useGameStore()
 
   return (
     <div className="weapon-hud">
-      {/* Gun ammo pips */}
+      {/* Gun ammo pips + cooldown bar */}
       <div className="weapon-row">
         <span className="weapon-label">GUN</span>
         <div className="weapon-pips">
@@ -202,8 +207,21 @@ function WeaponHUD() {
           ))}
         </div>
       </div>
+      <div className="weapon-cooldown-track weapon-cooldown-track--gun">
+        {/* key change restarts the CSS fill animation without any per-frame state */}
+        {gunCooldownKey > 0 && (
+          <div
+            key={gunCooldownKey}
+            className="weapon-cooldown-fill weapon-cooldown-fill--gun"
+            style={{ animationDuration: `${GUN_COOLDOWN_S}s` }}
+          />
+        )}
+        {gunCooldownKey === 0 && (
+          <div className="weapon-cooldown-fill weapon-cooldown-fill--gun weapon-cooldown-fill--ready" />
+        )}
+      </div>
 
-      {/* Laser charge pips */}
+      {/* Laser charge pips + cooldown bar */}
       <div className="weapon-row">
         <span className="weapon-label">LASER</span>
         <div className="weapon-pips">
@@ -211,6 +229,31 @@ function WeaponHUD() {
             <div
               key={i}
               className={`weapon-pip weapon-pip--laser${i < laserCharges ? ' filled' : ''}`}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="weapon-cooldown-track weapon-cooldown-track--laser">
+        {laserCooldownKey > 0 && (
+          <div
+            key={laserCooldownKey}
+            className="weapon-cooldown-fill weapon-cooldown-fill--laser"
+            style={{ animationDuration: `${LASER_COOLDOWN_S}s` }}
+          />
+        )}
+        {laserCooldownKey === 0 && (
+          <div className="weapon-cooldown-fill weapon-cooldown-fill--laser weapon-cooldown-fill--ready" />
+        )}
+      </div>
+
+      {/* Rocket ammo pips (no cooldown bar — reload is per-ammo) */}
+      <div className="weapon-row">
+        <span className="weapon-label">RCKT</span>
+        <div className="weapon-pips">
+          {Array.from({ length: ROCKET_MAX_AMMO }, (_, i) => (
+            <div
+              key={i}
+              className={`weapon-pip weapon-pip--rocket${i < rocketAmmo ? ' filled' : ''}`}
             />
           ))}
         </div>
