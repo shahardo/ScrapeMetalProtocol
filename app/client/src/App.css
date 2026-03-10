@@ -132,6 +132,89 @@ html, body, #root {
   line-height: 1.8;
 }
 
+/* ── Bot button ───────────────────────────────────────────────────────────── */
+.bot-btn {
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  z-index: 15;
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  padding: 5px 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bot-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bot-btn--active {
+  border-color: #44ffaa;
+  color: #44ffaa;
+  box-shadow: 0 0 8px rgba(68, 255, 170, 0.3);
+}
+
+/* ── Bot modal overrides ──────────────────────────────────────────────────── */
+.bot-modal {
+  max-height: 92vh;
+  height: 92vh;
+  width: min(640px, 96vw);
+  display: flex;
+  flex-direction: column;
+}
+
+.bot-instructions {
+  font-size: 11px;
+  color: var(--color-text);
+  opacity: 0.55;
+  padding: 8px 20px 0;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.bot-instructions code {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.bot-editor {
+  flex: 1;
+  min-height: 0;
+  margin: 10px 20px;
+  padding: 10px 12px;
+  background: #070a10;
+  border: 1px solid rgba(0, 255, 255, 0.18);
+  color: #c8e0d0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+}
+
+.bot-editor:focus {
+  border-color: rgba(0, 255, 255, 0.4);
+}
+
+.bot-status {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--color-text);
+  opacity: 0.45;
+}
+
+.bot-status--active {
+  color: #44ffaa;
+  opacity: 1;
+}
+
 /* ── Mic button ───────────────────────────────────────────────────────────── */
 .mic-btn {
   position: absolute;

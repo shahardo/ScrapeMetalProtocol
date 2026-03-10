@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useRef } from 'react'
+import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
@@ -7,6 +7,10 @@ import { RobotEntity } from './robot/RobotEntity'
 import { RemoteRobotEntity } from './RemoteRobotEntity'
 import { useNetworking } from '../network/useNetworking'
 import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, ROCKET_MAX_AMMO, CHASSIS_MAX_HEALTH } from '../store/gameStore'
+import { useBotWorker } from './bot/useBotWorker'
+import { BotScriptModal } from './ui/BotScriptModal'
+import type { BotState } from '../types/bot'
+import type { RobotSnapshot } from '../types/game'
 
 // ── React Error Boundary ──────────────────────────────────────────────────────
 
@@ -271,6 +275,40 @@ const MIC_LABEL: Record<string, string> = {
   unavailable: '🎤 UNAVAILABLE',
 }
 
+// ── BotTickSender ─────────────────────────────────────────────────────────────
+// Lives inside the Canvas so it can use useFrame without extra overhead.
+// Sends a BotState snapshot to the bot worker at ~20 Hz.
+
+interface BotTickSenderProps {
+  isBotActive: boolean
+  sendTick: (state: BotState) => void
+  remoteSnapshotRef: React.RefObject<RobotSnapshot | null>
+}
+
+function BotTickSender({ isBotActive, sendTick, remoteSnapshotRef }: BotTickSenderProps) {
+  const tickTimer = useRef(0)
+  useFrame((_, delta) => {
+    if (!isBotActive) return
+    tickTimer.current += delta
+    if (tickTimer.current < 0.05) return  // ~20 Hz
+    tickTimer.current = 0
+
+    const s    = useGameStore.getState()
+    const snap = remoteSnapshotRef.current
+    sendTick({
+      x: 0, y: 0,
+      enemyX: snap?.pos[0] ?? 0,
+      enemyY: snap?.pos[1] ?? 0,
+      health: s.chassisHealth,
+      enemyHealth: 100,
+      gunAmmo: s.gunAmmo,
+      laserCharges: s.laserCharges,
+      isGrounded: true,
+    })
+  })
+  return null
+}
+
 interface GameCanvasProps {
   authToken?: string
   userId?:    string
@@ -283,6 +321,9 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
     pendingRemoteWeaponEvent, pendingRemoteWeaponHit,
     micStatus, toggleMic,
   } = useNetworking(authToken)
+
+  const { isActive: isBotActive, workerError, installScript, sendTick, latestInputRef } = useBotWorker()
+  const [botModalOpen, setBotModalOpen] = useState(false)
 
   // Report score to server whenever it changes so the live scoreboard updates.
   const score = useGameStore((s) => s.score)
@@ -300,6 +341,23 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
 
       {/* ── Weapon HUD (bottom-right) ────────────────────────────────────────── */}
       <WeaponHUD />
+
+      {/* ── Bot button + modal ───────────────────────────────────────────── */}
+      <button
+        className={`bot-btn${isBotActive ? ' bot-btn--active' : ''}`}
+        onClick={() => setBotModalOpen(true)}
+        title="Open bot script editor"
+      >
+        {isBotActive ? 'BOT ON' : 'BOT'}
+      </button>
+      {botModalOpen && (
+        <BotScriptModal
+          onClose={() => setBotModalOpen(false)}
+          onInstall={installScript}
+          isActive={isBotActive}
+          workerError={workerError}
+        />
+      )}
 
       {/* ── Mic indicator (only during a live match) ──────────────────────── */}
       {status === 'matched' && micStatus !== 'idle' && (
@@ -381,6 +439,13 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
           {/* ── Floating damage numbers anchored to 3D hit positions ────── */}
           <HitPopups />
 
+          {/* ── Bot tick sender (feeds bot input to RobotEntity each frame) ─ */}
+          <BotTickSender
+            isBotActive={isBotActive}
+            sendTick={sendTick}
+            remoteSnapshotRef={latestRemoteSnapshot}
+          />
+
           {/* ── Physics world ────────────────────────────────────────────── */}
           <Suspense fallback={null}>
             <Physics gravity={[0, -30, 0]}>
@@ -389,6 +454,8 @@ export function GameCanvas({ authToken }: GameCanvasProps) {
                 color="#4a8aaa"
                 startPosition={[-3, 3, 0]}
                 onSnapshot={sendSnapshot}
+                botInputRef={latestInputRef}
+                isBotActive={isBotActive}
               />
               {status === 'matched' && (
                 <RemoteRobotEntity
