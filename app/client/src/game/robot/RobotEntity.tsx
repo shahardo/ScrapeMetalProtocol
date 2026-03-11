@@ -149,6 +149,16 @@ interface RobotEntityProps {
    */
   botInputRef?: RefObject<BotInput>
   isBotActive?: boolean
+  /**
+   * Optional ref updated every frame with the chassis world-space position.
+   * Used by RadarHUD and BotTickSender without triggering re-renders.
+   */
+  localPosRef?: React.MutableRefObject<[number, number, number]>
+  /**
+   * Optional ref updated every frame with the robot's Y-axis facing angle (radians).
+   * RadarHUD uses this to rotate the view so "forward" is always up.
+   */
+  localAzimuthRef?: React.MutableRefObject<number>
 }
 
 /**
@@ -166,6 +176,8 @@ export function RobotEntity({
   onSnapshot,
   botInputRef,
   isBotActive = false,
+  localPosRef,
+  localAzimuthRef,
 }: RobotEntityProps) {
   const chassisRef = useRef<RapierRigidBody>(null)
   const controls   = useControls()
@@ -214,6 +226,11 @@ export function RobotEntity({
       jumpConsumed.current = true
     }
     if (!c.jump) jumpConsumed.current = false
+
+    // ── Update local position/azimuth refs every frame (RadarHUD + BotTickSender) ─
+    const t0 = rb.translation()
+    if (localPosRef) localPosRef.current = [t0.x, t0.y, t0.z]
+    if (localAzimuthRef) localAzimuthRef.current = facingAngle.current
 
     // ── Snapshot broadcast (~20 Hz) ───────────────────────────────────────
     if (onSnapshot) {

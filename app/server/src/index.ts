@@ -181,6 +181,24 @@ export async function createServer(port: number = DEFAULT_PORT): Promise<Fastify
       broadcastLobby()
     })
 
+    // Skip the countdown and fire the match immediately (requires 2+ queued players).
+    socket.on('skip_countdown', () => {
+      if (!queue.list().includes(socket.id) || queue.length < 2) return
+      if (countdownTimer !== null) {
+        clearInterval(countdownTimer)
+        countdownTimer = null
+      }
+      const pair = queue.tryPair()
+      if (!pair) return
+      const [playerA, playerB] = pair
+      const roomId = `match::${playerA}::${playerB}`
+      io.sockets.sockets.get(playerA)?.join(roomId)
+      io.sockets.sockets.get(playerB)?.join(roomId)
+      io.to(roomId).emit('match_found', { roomId, players: [playerA, playerB] })
+      broadcastLobby()
+      if (queue.length >= 2) startMatchCountdown()
+    })
+
     // ── Live score reporting ──────────────────────────────────────────────────
     // Clients emit this whenever the local player's score changes.
     socket.on('score_update', (score: unknown) => {

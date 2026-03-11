@@ -3,6 +3,7 @@ import { RobotConfigModel } from '../models/robotConfig.js'
 
 interface SaveBody {
   name: string
+  description?: string
   parts: unknown[]
 }
 
@@ -37,14 +38,15 @@ export async function garageRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Params: { userId: string }; Body: SaveBody }>(
     '/garage/:userId',
     async (request, reply) => {
-      const { name, parts } = request.body
+      const { name, description, parts } = request.body
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
         return reply.status(400).send({ error: 'name is required' })
       }
       try {
         const robot = await RobotConfigModel.create({
-          userId: request.params.userId,
-          name: name.trim(),
+          userId:      request.params.userId,
+          name:        name.trim(),
+          description: typeof description === 'string' ? description : '',
           parts,
         })
         return reply.status(201).send({ robot })

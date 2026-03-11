@@ -35,6 +35,8 @@ export interface RobotPart {
 export interface RobotConfig {
   id: string
   name: string
+  /** Auto-generated summary shown in the saved robots list (e.g. "L: LASER / R: GUN"). */
+  description?: string
   parts: RobotPart[]
 }
 
@@ -84,6 +86,8 @@ export interface RobotSnapshot {
     hitPos: [number, number, number]
     damage: number
   }
+  /** Sent once by the player whose health just reached zero. */
+  matchEnd?: true
 }
 
 /** Saved robot as returned by the Garage REST API (includes MongoDB metadata). */

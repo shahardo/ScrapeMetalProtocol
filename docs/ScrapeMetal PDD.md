@@ -123,9 +123,38 @@ To ensure long-term maintainability and collaboration, all developers must adher
 * **`WeaponType = 'gun' | 'laser'`** added to `types/game.ts`. Full garage weapon-slot customisation arrives in Sprint 11+. ✅
 * **Architecture:** `WeaponSystem` component mounted inside `RobotEntity`; receives `chassisRef`, `facingAngleRef`, and `controls` refs. ✅
 
-### **Sprint 11+: Polish & Programmable Bots**
+### **Sprint 11: Polish, Bots & Extended Weapons** ✅ Done
 
-* Implement the Web Worker sandboxed environment for running user-submitted JS bot logic.
-* Add shaders, particle systems (sparks/smoke), and audio cues.
-* Weapon damage numbers, heat/cooldown HUD bars, and weapon-slot customisation in the Garage.
-* Conduct load testing and finalize V1.0 deployment.
+* Web Worker sandboxed bot environment — user JS runs in `new Function` scope with 20 ms timeout guard. ✅
+* Bot script editor accessible via Garage → BOT SCRIPT tab. ✅
+* Weapon damage numbers, cooldown HUD bars, weapon-slot customisation in the Garage. ✅
+* New weapons: Shotgun (3-pellet spread), Rocket (slow/heavy), Sniper (long-range, 2-charge cost). ✅
+* Q/E keybindings for left/right arm weapons. ✅
+* Hull health bar drains correctly when hit by remote player. ✅
+
+### **Sprint 12: Garage 2.0, Bot UX & Match Lifecycle** ✅ Done
+
+#### Garage 2.0
+* **Garage locked during match** — button disabled when `matchStatus === 'matched'`; closes automatically if a match starts. `matchStatus` mirrored from `useNetworking` into Zustand store so `App.tsx` can read it. ✅
+* **Weapon table** — WEAPONS tab replaced with a full per-weapon table: rotating 3-D R3F preview mesh, stat bars (Power/Range/ROF), ammo count, credit price placeholder, Q/E slot-select buttons. Weapon stats defined in `weaponRegistry.ts`. ✅
+* **Bot editor tab** — BOT SCRIPT is the second tab inside the Garage modal. Standalone BOT button removed. `GarageModal` now accepts `isBotInstalled`, `isBotActive`, `workerError`, `onInstallBot`, `onStartBot`, `onStopBot` props from `GameCanvas`. ✅
+* **Weapon list load/save fixed** — `weaponSlot` field added to Mongoose `robotPartSchema`; `description` field added to `robotConfigSchema` auto-generated at save time (e.g. `"Q: LASER / E: GUN"`). ✅
+* **Start Match button** — matchmaking overlay shows a large `START MATCH` button with a garage hint line in the `disconnected` state. ✅
+
+#### Bot UX
+* **Install / Start / Stop split** — `installScript()` loads the script into the sandbox without starting it. `startBot()` activates the bot; `stopBot()` deactivates it. Tab badge shows `RDY` (installed, not running) or `RUN` (running). ✅
+* **Bot debug panel** — collapsible HUD panel polling `debugRef` at 10 Hz; displays real `x/y` position from `localPosRef`, `state` JSON and `BotInput` reply; errors shown in red. Panel height increased to 420 px. ✅
+* **`BotState.x/y` real position** — `BotTickSender` reads actual chassis world position from `localPosRef` (updated by `RobotEntity` every frame) instead of hardcoding 0. ✅
+
+#### Match lifecycle
+* **End-of-match on zero health** — when `chassisHealth` reaches 0, local client sends `{ matchEnd: true }` over DataChannel and transitions to `defeat`; receiver transitions to `victory`. Both show a DEFEATED / VICTORY overlay for 5 s then reset to `disconnected`. Health resets to 100 on return to lobby. ✅
+
+#### Radar HUD
+* **Radar panel** — 120 px circular `<canvas>` (top-left, below Garage button, visible during `matched` state). Local robot drawn at center; remote robot dot is relative to local position, clamped to circle edge if out of view range. Rotating sweep line, 2 s period, 10 Hz redraw via `setInterval`. ✅
+
+### **Sprint 13+: Audio, Shaders & V1.0**
+
+* Positional audio (howler.js or Web Audio API) for weapon fire, impacts, and ambient hum.
+* Post-processing shaders: bloom on laser/sniper beams, chromatic aberration on chassis hit.
+* Credits economy: earn credits per match, spend in Garage on weapons and chassis upgrades.
+* Load testing (100 concurrent lobbies), TURN server integration, V1.0 deployment.

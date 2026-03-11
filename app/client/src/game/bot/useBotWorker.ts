@@ -17,13 +17,29 @@ import type { BotState, BotInput, BotWorkerResult } from '../../types/bot'
 // Vite's ?worker suffix handles this automatically.
 import BotWorkerClass from './botWorker?worker'
 
+export interface BotDebugSnapshot {
+  state: BotState
+  input: BotInput
+}
+
 export interface UseBotWorkerReturn {
-  /** True when a script is installed and the worker is running. */
+  /** True when a script has been installed into the worker (not necessarily running). */
+  isInstalled: boolean
+  /** True when the bot is actively running (ticks being sent). */
   isActive: boolean
   /** Last error message from the worker (compile or runtime). Cleared on new install. */
   workerError: string | null
-  /** Compile and install a new bot script. Clears any previous error. */
+  /**
+   * Compile and load a new user script into the worker sandbox.
+   * Does NOT start the bot — call startBot() separately.
+   */
   installScript: (script: string) => void
+  /** Start the bot running (requires a script to be installed first). */
+  startBot: () => void
+  /** Deactivate the bot — stops feeding input to RobotEntity. */
+  stopBot: () => void
+  /** Last state+input pair for the debug panel. Updated on every tick reply. */
+  debugRef: React.RefObject<BotDebugSnapshot | null>
   /**
    * Send a tick to the worker. Returns immediately (async result arrives via
    * onmessage). The game loop should read `latestInputRef` each frame instead
@@ -40,8 +56,12 @@ export interface UseBotWorkerReturn {
 export function useBotWorker(): UseBotWorkerReturn {
   const workerRef      = useRef<Worker | null>(null)
   const latestInputRef = useRef<BotInput>({})
+  const debugRef       = useRef<BotDebugSnapshot | null>(null)
   const tickIdRef      = useRef(0)
+  // Keep latest sent state so we can pair it with the reply in debugRef.
+  const lastStateRef   = useRef<BotState | null>(null)
 
+  const [isInstalled, setIsInstalled] = useState(false)
   const [isActive,    setIsActive]    = useState(false)
   const [workerError, setWorkerError] = useState<string | null>(null)
 
@@ -53,6 +73,9 @@ export function useBotWorker(): UseBotWorkerReturn {
       const msg = evt.data
       if (msg.type === 'tick' && msg.tickId !== -1) {
         latestInputRef.current = msg.input
+        if (lastStateRef.current) {
+          debugRef.current = { state: lastStateRef.current, input: msg.input }
+        }
       } else if (msg.type === 'error') {
         setWorkerError(msg.message)
         // Reset input so the robot stops moving on error
@@ -76,15 +99,30 @@ export function useBotWorker(): UseBotWorkerReturn {
     if (!workerRef.current) return
     setWorkerError(null)
     latestInputRef.current = {}
+    // Only load the script into the sandbox; do not auto-start the bot.
     workerRef.current.postMessage({ type: 'install', script })
+    setIsInstalled(true)
+    // Stop any currently running bot so the new script is clean
+    setIsActive(false)
+  }, [])
+
+  const startBot = useCallback(() => {
     setIsActive(true)
+    setWorkerError(null)
+  }, [])
+
+  const stopBot = useCallback(() => {
+    latestInputRef.current = {}
+    setIsActive(false)
+    setWorkerError(null)
   }, [])
 
   const sendTick = useCallback((state: BotState) => {
     if (!workerRef.current || !isActive) return
     tickIdRef.current += 1
+    lastStateRef.current = state
     workerRef.current.postMessage({ type: 'tick', tickId: tickIdRef.current, state })
   }, [isActive])
 
-  return { isActive, workerError, installScript, sendTick, latestInputRef }
+  return { isInstalled, isActive, workerError, installScript, startBot, stopBot, sendTick, latestInputRef, debugRef }
 }

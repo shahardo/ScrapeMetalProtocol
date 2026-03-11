@@ -26,6 +26,8 @@ interface WebRTCSignalIn {
   candidate?: RTCIceCandidateInit
 }
 
+export type MatchResult = 'none' | 'victory' | 'defeat'
+
 export interface NetworkingAPI {
   status: NetworkStatus
   isHost: boolean
@@ -34,9 +36,15 @@ export interface NetworkingAPI {
   countdown: number | null
   joinQueue: () => void
   leaveQueue: () => void
+  /** Skip the current countdown and start the match immediately (requires 2+ players in queue). */
+  skipCountdown: () => void
   sendSnapshot: (snap: RobotSnapshot) => void
   /** Emit the local player's current score to the server for live broadcast. */
   reportScore: (score: number) => void
+  /** Signal to the opponent that our health hit zero; triggers end-of-match. */
+  sendMatchEnd: () => void
+  /** 'none' during an active match; 'defeat' / 'victory' for 5 s after match ends. */
+  matchResult: MatchResult
   latestRemoteSnapshot: React.RefObject<RobotSnapshot | null>
   /** Holds the most recent weapon-fire event from the remote player.
    *  Set by the network layer; cleared by the consumer (RemoteRobotEntity)
@@ -50,11 +58,12 @@ export interface NetworkingAPI {
 }
 
 export function useNetworking(authToken?: string): NetworkingAPI {
-  const [status,    setStatus]    = useState<NetworkStatus>('disconnected')
-  const [isHost,    setIsHost]    = useState(false)
-  const [micStatus, setMicStatus] = useState<MicStatus>('idle')
-  const [lobby,     setLobby]     = useState<LobbyEntry[]>([])
-  const [countdown, setCountdown] = useState<number | null>(null)
+  const [status,      setStatus]      = useState<NetworkStatus>('disconnected')
+  const [isHost,      setIsHost]      = useState(false)
+  const [micStatus,   setMicStatus]   = useState<MicStatus>('idle')
+  const [lobby,       setLobby]       = useState<LobbyEntry[]>([])
+  const [countdown,   setCountdown]   = useState<number | null>(null)
+  const [matchResult, setMatchResult] = useState<MatchResult>('none')
 
   const setLiveScores = useGameStore((s) => s.setLiveScores)
 
@@ -73,6 +82,21 @@ export function useNetworking(authToken?: string): NetworkingAPI {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
+  // Shared end-of-match transition: show result overlay, then reset after 5 s.
+  const triggerMatchEnd = useCallback((result: 'victory' | 'defeat') => {
+    setMatchResult(result)
+    setTimeout(() => {
+      pcRef.current?.close()
+      pcRef.current      = null
+      channelRef.current = null
+      latestRemoteSnapshot.current     = null
+      pendingRemoteWeaponEvent.current = null
+      pendingRemoteWeaponHit.current   = null
+      setMatchResult('none')
+      setStatus('disconnected')
+    }, 5000)
+  }, [])
+
   const cleanupVoice = useCallback(() => {
     micStreamRef.current?.getTracks().forEach((t) => t.stop())
     micStreamRef.current = null
@@ -90,6 +114,11 @@ export function useNetworking(authToken?: string): NetworkingAPI {
     dc.onmessage = (e: MessageEvent<string>) => {
       try {
         const snap = JSON.parse(e.data) as RobotSnapshot
+        // Opponent's health hit zero — we won.
+        if (snap.matchEnd) {
+          triggerMatchEnd('victory')
+          return
+        }
         // Store weapon events in a dedicated ref so they survive subsequent
         // position-only snapshots arriving before RemoteRobotEntity reads them.
         if (snap.weaponFired) {
@@ -251,11 +280,21 @@ export function useNetworking(authToken?: string): NetworkingAPI {
     setStatus('disconnected')
   }, [])
 
+  const skipCountdown = useCallback(() => {
+    socketRef.current?.emit('skip_countdown')
+  }, [])
+
   const sendSnapshot = useCallback((snap: RobotSnapshot) => {
     const ch = channelRef.current
     if (!ch || ch.readyState !== 'open') return
     ch.send(JSON.stringify(snap))
   }, [])
+
+  const sendMatchEnd = useCallback(() => {
+    const ch = channelRef.current
+    if (ch?.readyState === 'open') ch.send(JSON.stringify({ matchEnd: true }))
+    triggerMatchEnd('defeat')
+  }, [triggerMatchEnd])
 
   const reportScore = useCallback((score: number) => {
     socketRef.current?.emit('score_update', score)
@@ -297,9 +336,10 @@ export function useNetworking(authToken?: string): NetworkingAPI {
   }, [])
 
   return {
-    status, isHost, lobby, countdown,
-    joinQueue, leaveQueue,
-    sendSnapshot, reportScore, latestRemoteSnapshot, pendingRemoteWeaponEvent, pendingRemoteWeaponHit,
+    status, isHost, lobby, countdown, matchResult,
+    joinQueue, leaveQueue, skipCountdown,
+    sendSnapshot, reportScore, sendMatchEnd,
+    latestRemoteSnapshot, pendingRemoteWeaponEvent, pendingRemoteWeaponHit,
     micStatus, toggleMic,
   }
 }

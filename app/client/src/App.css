@@ -93,13 +93,58 @@ html, body, #root {
   padding: 4px 10px;
   cursor: pointer;
   text-transform: uppercase;
-  opacity: 0.7;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(0, 255, 180, 0.25);
+  transition: opacity 0.2s, background 0.15s, color 0.15s, box-shadow 0.2s;
 }
 
 .hud-garage-btn:hover {
   opacity: 1;
   background: var(--color-primary);
+  color: #000;
+  box-shadow: 0 0 14px rgba(0, 255, 180, 0.55);
+}
+
+/* Greyed out and inert during a live match */
+.hud-garage-btn:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* Primary (GARAGE) button — filled background so it pops at startup */
+.hud-garage-btn--primary {
+  background: rgba(0, 255, 255, 0.08);
+  border-width: 1.5px;
+  box-shadow: 0 0 12px rgba(0, 255, 180, 0.4);
+}
+
+.hud-garage-btn--primary:hover {
+  background: var(--color-primary);
+  color: #000;
+  box-shadow: 0 0 18px rgba(0, 255, 180, 0.7);
+}
+
+/* Bot run/stop toggle in the top HUD row */
+.hud-bot-toggle {
+  border-color: #44ccff;
+  color: #44ccff;
+}
+
+.hud-bot-toggle:hover {
+  background: #44ccff;
+  color: #000;
+}
+
+.hud-bot-toggle--active {
+  border-color: #44ffaa;
+  color: #44ffaa;
+  box-shadow: 0 0 10px rgba(68, 255, 170, 0.4);
+}
+
+.hud-bot-toggle--active:hover {
+  background: #44ffaa;
   color: #000;
 }
 
@@ -215,6 +260,11 @@ html, body, #root {
   opacity: 1;
 }
 
+.bot-status--ready {
+  color: #44ccff;
+  opacity: 0.85;
+}
+
 /* ── Mic button ───────────────────────────────────────────────────────────── */
 .mic-btn {
   position: absolute;
@@ -307,6 +357,61 @@ html, body, #root {
   color: #000;
 }
 
+/* ── Match result overlay ────────────────────────────────────────────────── */
+.match-result-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.65);
+  animation: fade-in 0.4s ease;
+}
+
+.match-result-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 60px;
+  border: 1px solid currentColor;
+}
+
+.match-result-overlay--victory .match-result-panel {
+  border-color: #44ffaa;
+  box-shadow: 0 0 40px rgba(68, 255, 170, 0.25);
+}
+
+.match-result-overlay--defeat .match-result-panel {
+  border-color: #ff3344;
+  box-shadow: 0 0 40px rgba(255, 51, 68, 0.25);
+}
+
+.match-result-title {
+  font-family: var(--font-mono);
+  font-size: 42px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+}
+
+.match-result-overlay--victory .match-result-title { color: #44ffaa; }
+.match-result-overlay--defeat  .match-result-title { color: #ff3344; }
+
+.match-result-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  color: var(--color-text);
+  opacity: 0.5;
+  text-transform: uppercase;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* ── Matchmaking overlay ──────────────────────────────────────────────────── */
 .matchmaking-overlay {
   position: absolute;
@@ -369,6 +474,13 @@ html, body, #root {
   color: #000;
 }
 
+.matchmaking-btn-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
 .matchmaking-btn--cancel {
   border-color: var(--color-danger);
   color: var(--color-danger);
@@ -377,6 +489,23 @@ html, body, #root {
 .matchmaking-btn--cancel:hover {
   background: var(--color-danger);
   color: #000;
+}
+
+.matchmaking-btn--start {
+  font-size: 15px;
+  padding: 14px 48px;
+  letter-spacing: 0.35em;
+  border-width: 2px;
+  margin-top: 8px;
+}
+
+.matchmaking-hint {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--color-text);
+  opacity: 0.4;
+  text-align: center;
+  margin-bottom: 8px;
 }
 
 /* ── Garage modal ─────────────────────────────────────────────────────────── */
@@ -393,8 +522,9 @@ html, body, #root {
 .garage-modal {
   background: #0d1018;
   border: 1px solid var(--color-primary);
-  width: min(560px, 92vw);
-  max-height: 80vh;
+  width: min(600px, 96vw);
+  height: 88vh;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -404,8 +534,80 @@ html, body, #root {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+  gap: 12px;
+}
+
+/* ── Garage tabs ──────────────────────────────────────────────────────────── */
+.garage-tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.garage-tab {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  padding: 5px 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.12s, color 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.garage-tab:hover {
+  background: rgba(0, 255, 255, 0.05);
+}
+
+.garage-tab--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.garage-tab-badge {
+  background: #44ffaa;
+  color: #000;
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: 0.1em;
+}
+
+.garage-tab-badge--ready {
+  background: #44ccff;
+}
+
+/* ── Bot inline panel (inside Garage BOT tab) ─────────────────────────────── */
+.bot-inline {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.bot-inline .bot-editor {
+  flex: 1;
+  margin: 10px 20px;
+}
+
+.bot-inline .bot-instructions {
+  padding-top: 12px;
+}
+
+.bot-inline .garage-save-row {
+  padding: 10px 20px;
+}
+
+.bot-action-btns {
+  display: flex;
+  gap: 8px;
 }
 
 .garage-title {
@@ -485,6 +687,21 @@ html, body, #root {
   color: #000;
 }
 
+.garage-btn--start {
+  border-color: #44ffaa;
+  color: #44ffaa;
+}
+
+.garage-btn--start:hover:not(:disabled) {
+  background: #44ffaa;
+  color: #000;
+}
+
+.garage-btn--start:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .garage-error {
   font-size: 11px;
   color: var(--color-danger);
@@ -494,8 +711,10 @@ html, body, #root {
 
 .garage-list {
   overflow-y: auto;
-  flex: 1;
-  padding: 8px 0;
+  max-height: 160px;
+  flex-shrink: 0;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .garage-empty {
@@ -511,7 +730,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 6px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -519,8 +738,15 @@ html, body, #root {
   background: rgba(0, 255, 255, 0.03);
 }
 
-.garage-robot-name {
+.garage-robot-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.garage-robot-name {
   font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--color-text);
@@ -528,6 +754,16 @@ html, body, #root {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.garage-robot-desc {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .garage-robot-meta {
@@ -631,6 +867,239 @@ html, body, #root {
   color: #44ccff;
   opacity: 1;
   box-shadow: 0 0 6px rgba(68, 204, 255, 0.35);
+}
+
+/* ── Weapon Table (Garage WEAPONS tab) ───────────────────────────────────── */
+.wt-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.wt-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.07);
+  transition: background 0.12s;
+}
+
+.wt-row:hover {
+  background: rgba(0, 255, 255, 0.04);
+}
+
+.wt-row--equipped {
+  background: rgba(0, 255, 255, 0.06);
+}
+
+.wt-preview {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 255, 255, 0.12);
+  background: #060c14;
+}
+
+.wt-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wt-name {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.wt-desc {
+  font-size: 10px;
+  color: var(--color-text);
+  opacity: 0.55;
+  line-height: 1.4;
+}
+
+.wt-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.wt-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wt-stat-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--color-text);
+  opacity: 0.4;
+  width: 28px;
+}
+
+.wt-stat-track {
+  display: flex;
+  gap: 3px;
+}
+
+.wt-stat-pip {
+  width: 10px;
+  height: 6px;
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+
+.wt-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.wt-ammo,
+.wt-price {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--color-text);
+  opacity: 0.45;
+  text-transform: uppercase;
+}
+
+.wt-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wt-slot-btn {
+  width: 44px;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  opacity: 0.6;
+}
+
+.wt-slot-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  opacity: 1;
+}
+
+.wt-slot-btn--active {
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.2);
+}
+
+/* ── Bot debug panel ─────────────────────────────────────────────────────── */
+.bot-debug-panel {
+  position: absolute;
+  bottom: 160px;
+  right: 20px;
+  z-index: 15;
+  width: 220px;
+  background: rgba(5, 12, 20, 0.88);
+  border: 1px solid rgba(68, 255, 170, 0.3);
+  font-family: var(--font-mono);
+}
+
+.bot-debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 5px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(68, 255, 170, 0.15);
+  color: #44ffaa;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+}
+
+.bot-debug-chevron {
+  transition: transform 0.15s;
+}
+
+.bot-debug-chevron--closed {
+  transform: rotate(-90deg);
+}
+
+.bot-debug-body {
+  padding: 8px 10px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.bot-debug-section {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: rgba(68, 255, 170, 0.5);
+  margin: 6px 0 2px;
+  text-transform: uppercase;
+}
+
+.bot-debug-pre {
+  font-size: 10px;
+  color: #a0d8b0;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.bot-debug-error {
+  font-size: 10px;
+  color: #ff6677;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.bot-debug-empty {
+  font-size: 10px;
+  color: rgba(68, 255, 170, 0.35);
+  margin: 0;
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* ── Radar HUD ────────────────────────────────────────────────────────────── */
+.radar-hud {
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.radar-hud canvas {
+  display: block;
+  border-radius: 50%;
+}
+
+.radar-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: rgba(0, 255, 180, 0.45);
+  text-transform: uppercase;
 }
 
 /* ── Weapon HUD ───────────────────────────────────────────────────────────── */
@@ -753,6 +1222,81 @@ html, body, #root {
 /* Ready state (before first fire, or after cooldown completes) */
 .weapon-cooldown-fill--ready {
   width: 100%;
+}
+
+/* Rocket cooldown track (no animation needed, but keep consistent) */
+.weapon-cooldown-track--rocket {
+  background: rgba(255, 68, 34, 0.18);
+}
+
+.weapon-cooldown-fill--rocket {
+  background: #ff4422;
+  box-shadow: 0 0 4px #ff4422;
+}
+
+/* ── Weapon slot (replaces weapon-row for per-arm display) ─────────────────── */
+.weapon-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.weapon-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weapon-slot-key {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  min-width: 12px;
+  text-align: center;
+}
+
+.weapon-slot-name {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* ── Bot run/stop HUD button ─────────────────────────────────────────────── */
+.bot-hud-btn {
+  position: absolute;
+  bottom: 200px;
+  right: 20px;
+  z-index: 11;
+  pointer-events: auto;
+  background: transparent;
+  border: 1px solid #44ccff;
+  color: #44ccff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bot-hud-btn:hover {
+  background: #44ccff;
+  color: #000;
+}
+
+.bot-hud-btn--active {
+  border-color: #44ffaa;
+  color: #44ffaa;
+  box-shadow: 0 0 8px rgba(68, 255, 170, 0.35);
+}
+
+.bot-hud-btn--active:hover {
+  background: #44ffaa;
+  color: #000;
 }
 
 /* ── Hull health bar (bottom-left, above score) ───────────────────────────── */

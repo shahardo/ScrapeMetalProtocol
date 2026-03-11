@@ -9,7 +9,10 @@
       "Bash(npm run test --workspace=app/client)",
       "Bash(npm run lint -w app/server)",
       "Bash(grep -v \"^$\")",
-      "Bash(npm run lint -w app/client)"
+      "Bash(npm run lint -w app/client)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest run --project client)",
+      "Bash(npx vitest run --config app/client/vite.config.ts)"
     ]
   }
 }

@@ -82,6 +82,10 @@ interface GameStore {
   currentArena: ArenaId
   setCurrentArena: (arena: ArenaId) => void
 
+  // ── Match status (mirrors useNetworking status for cross-component gating) ─
+  matchStatus: 'disconnected' | 'queued' | 'connecting' | 'matched'
+  setMatchStatus: (s: 'disconnected' | 'queued' | 'connecting' | 'matched') => void
+
   // ── UI flags ──────────────────────────────────────────────────────────────
   isConnecting: boolean
   setIsConnecting: (v: boolean) => void
@@ -151,6 +155,9 @@ export const useGameStore = create<GameStore>((set) => ({
 
   currentArena: 'test-arena',
   setCurrentArena: (arena) => set({ currentArena: arena }),
+
+  matchStatus: 'disconnected',
+  setMatchStatus: (s) => set({ matchStatus: s }),
 
   isConnecting: false,
   setIsConnecting: (v) => set({ isConnecting: v }),
