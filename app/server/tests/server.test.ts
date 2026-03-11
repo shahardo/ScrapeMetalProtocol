@@ -69,6 +69,8 @@ describe('Matchmaking', () => {
 
     a.emit('join_queue')
     b.emit('join_queue')
+    // Skip the 5-second countdown so match_found fires immediately
+    a.emit('skip_countdown')
 
     const [payloadA, payloadB] = await Promise.all([matchA, matchB])
 
@@ -90,6 +92,8 @@ describe('Matchmaking', () => {
     const matchB = waitFor(b, 'match_found')
     a.emit('join_queue')
     b.emit('join_queue')
+    // Skip the 5-second countdown so match_found fires immediately
+    a.emit('skip_countdown')
     await Promise.all([matchA, matchB])
 
     // Capture id before disconnect — socket.io-client clears it on disconnect

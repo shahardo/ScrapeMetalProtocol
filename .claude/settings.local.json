@@ -12,7 +12,8 @@
       "Bash(npm run lint -w app/client)",
       "Bash(npx vitest run)",
       "Bash(npx vitest run --project client)",
-      "Bash(npx vitest run --config app/client/vite.config.ts)"
+      "Bash(npx vitest run --config app/client/vite.config.ts)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
