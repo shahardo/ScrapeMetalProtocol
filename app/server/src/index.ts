@@ -5,10 +5,11 @@ import { Server as SocketIOServer } from 'socket.io'
 import type { Server as HttpServer } from 'node:http'
 import mongoose from 'mongoose'
 import { MatchmakingQueue } from './matchmaking.js'
-import { garageRoutes } from './routes/garage.js'
-import { authRoutes }   from './routes/auth.js'
-import { scoreRoutes }  from './routes/scores.js'
-import { adminRoutes }  from './routes/admin.js'
+import { garageRoutes }   from './routes/garage.js'
+import { authRoutes }     from './routes/auth.js'
+import { scoreRoutes }    from './routes/scores.js'
+import { adminRoutes }    from './routes/admin.js'
+import { creditsRoutes }  from './routes/credits.js'
 import { tryVerifyToken } from './auth.js'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export async function createServer(port: number = DEFAULT_PORT): Promise<Fastify
   await fastify.register(garageRoutes)
   await fastify.register(scoreRoutes)
   await fastify.register(adminRoutes)
+  await fastify.register(creditsRoutes)
 
   await fastify.listen({ port, host: '0.0.0.0' })
 

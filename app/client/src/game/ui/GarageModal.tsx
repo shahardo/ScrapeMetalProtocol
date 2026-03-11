@@ -30,6 +30,8 @@ export interface GarageModalProps {
   onClose: () => void
   /** Authenticated user's DB id — used as the garage partition key. */
   userId: string
+  /** Current credit balance — used to gate locked weapons in WeaponTable. */
+  credits: number
   /** Bot state — passed from GameCanvas which owns useBotWorker. */
   isBotInstalled: boolean
   isBotActive: boolean
@@ -39,7 +41,7 @@ export interface GarageModalProps {
   onStopBot: () => void
 }
 
-export function GarageModal({ onClose, userId, isBotInstalled, isBotActive, workerError, onInstallBot, onStartBot, onStopBot }: GarageModalProps) {
+export function GarageModal({ onClose, userId, credits, isBotInstalled, isBotActive, workerError, onInstallBot, onStartBot, onStopBot }: GarageModalProps) {
 
   const [tab,      setTab]      = useState<GarageTab>('weapons')
   const [robots,   setRobots]   = useState<GarageRobot[]>([])
@@ -138,6 +140,7 @@ export function GarageModal({ onClose, userId, isBotInstalled, isBotActive, work
               {!isBotActive && isBotInstalled && <span className="garage-tab-badge garage-tab-badge--ready">RDY</span>}
             </button>
           </div>
+          <span className="garage-credits">{credits} ¢</span>
           <button className="garage-close" onClick={onClose}>✕</button>
         </div>
 
@@ -146,6 +149,7 @@ export function GarageModal({ onClose, userId, isBotInstalled, isBotActive, work
           <>
             {/* Weapon table: 3-D preview + stats + slot select */}
             <WeaponTable
+              credits={credits}
               onSelectLeft={setLeftArmWeapon}
               onSelectRight={setRightArmWeapon}
             />

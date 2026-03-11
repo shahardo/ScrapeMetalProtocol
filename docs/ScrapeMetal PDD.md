@@ -152,9 +152,32 @@ To ensure long-term maintainability and collaboration, all developers must adher
 #### Radar HUD
 * **Radar panel** — 120 px circular `<canvas>` (top-left, below Garage button, visible during `matched` state). Local robot drawn at center; remote robot dot is relative to local position, clamped to circle edge if out of view range. Rotating sweep line, 2 s period, 10 Hz redraw via `setInterval`. ✅
 
-### **Sprint 13+: Audio, Shaders & V1.0**
+### **Sprint 13: Audio, Shaders & Credits Economy** ✅ Done
 
-* Positional audio (howler.js or Web Audio API) for weapon fire, impacts, and ambient hum.
-* Post-processing shaders: bloom on laser/sniper beams, chromatic aberration on chassis hit.
-* Credits economy: earn credits per match, spend in Garage on weapons and chassis upgrades.
-* Load testing (100 concurrent lobbies), TURN server integration, V1.0 deployment.
+#### Audio
+* **Positional Web Audio** — `sounds.ts` extended with per-weapon synth sounds: `playShotgunShot()` (3 staggered bursts), `playRocketShot()` (low sine rumble), `playSniperShot()` (high-pitched sawtooth, distinct from laser). ✅
+* **Positional `*At(x,y,z)` variants** — all 5 weapons + hit confirm route through an HRTF `PannerNode` so remote opponent sounds attenuate with distance. `updateListenerPosition()` keeps the listener locked to the local robot every frame via `AudioListenerSync` inside the Canvas. ✅
+* **Arena ambient hum** — 80 Hz sine oscillator starts on `GameCanvas` mount, stopped on unmount via `startAmbientHum()` return value. ✅
+* **`RemoteRobotEntity`** — all incoming `weaponFired` and `weaponHit` events now trigger the appropriate positional sound at the emitter world position. ✅
+
+#### Post-Processing
+* **Bloom** — `@react-three/postprocessing` `EffectComposer` + `Bloom` (luminanceThreshold 0.6, intensity 0.8) makes all emissive meshes (laser/sniper beams, sparks, muzzle flashes) glow. ✅
+* **Chromatic aberration on hit** — `ChromaticAberrationController` inside the Canvas detects `chassisHealth` drops each frame, bumps aberration to 0.012, and decays it to zero over 0.6 s. Driven by `ChromaticAberration` in the `EffectComposer`. ✅
+* **Sniper beam colour** — sniper beam renders in cyan-blue (`#44ccff`) rather than red, visually distinct from the laser and Bloom-amplified separately. ✅
+
+#### Credits Economy
+* **`UserModel`** — `credits: Number` field added (default 0, min 0). ✅
+* **`credits.ts`** — pure `calcMatchCredits({ damageDealt, score })` (`floor(dmg/10) + score*5`, capped at 500) and `canAfford(balance, price)` — 8 unit tests. ✅
+* **`routes/credits.ts`** — `GET /credits` (balance), `POST /credits/award` (atomic `$inc`), `POST /credits/spend` (affordability check + atomic deduct) — 9 route tests. ✅
+* **Auth responses** — `/auth/login` and `/auth/register` now include `credits` in the response body so the client has the balance immediately. ✅
+* **`AuthUser`** — `credits: number` field added; `useAuth.ts` persists it from login/register responses. ✅
+* **`gameStore`** — `credits` + `setCredits` added; seeded from `auth.user.credits` on `GameCanvas` mount. 2 new tests. ✅
+* **Credit award on match end** — both players call `POST /credits/award` when `matchResult` transitions from `'none'`; balance is updated in the store. ✅
+* **Weapon gating** — `WeaponTable` disables Q/E buttons for weapons the player cannot afford; shows `"Requires N ¢"` tooltip and adds `wt-row--locked` class. ✅
+* **Garage header** — `GarageModal` shows `{credits} ¢` next to the close button. App HUD shows `{credits} ¢` next to pilot name. ✅
+
+### **Sprint 14+: V1.0 Polish & Deployment**
+
+* Load testing (100 concurrent lobbies), TURN server integration for strict-NAT players.
+* V1.0 deployment (Vercel frontend + cloud backend).
+* Additional arenas (`ruined-city`, `cyber-core`, `junkyard`) — type stubs exist, geometry pending.

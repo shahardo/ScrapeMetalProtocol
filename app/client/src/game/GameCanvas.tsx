@@ -1,6 +1,8 @@
-import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useRef } from 'react'
+import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
+import { EffectComposer, Bloom, ChromaticAberration } from '@react-three/postprocessing'
+import { Vector2 } from 'three'
 import { Physics } from '@react-three/rapier'
 import { Arena } from './Arena'
 import { RobotEntity } from './robot/RobotEntity'
@@ -12,6 +14,7 @@ import type { WeaponType } from '../types/game'
 import { useBotWorker } from './bot/useBotWorker'
 import { GarageModal } from './ui/GarageModal'
 import { BotDebugPanel } from './ui/BotDebugPanel'
+import { updateListenerPosition, startAmbientHum } from './weapons/sounds'
 import type { BotState } from '../types/bot'
 import type { RobotSnapshot } from '../types/game'
 
@@ -547,9 +550,63 @@ function BotTickSender({ isBotActive, sendTick, localPosRef, remoteSnapshotRef }
   return null
 }
 
+// ── ChromaticAberrationController ────────────────────────────────────────────
+// Detects chassis health drops each frame and drives a chromatic aberration
+// offset that decays from strong → zero over 0.6 s after each hit.
+
+const HIT_STRENGTH = 0.012   // initial aberration magnitude on chassis hit
+const HIT_DECAY    = 0.6     // seconds to decay back to zero
+
+interface ChromaticAberrationControllerProps {
+  setOffset: (v: Vector2) => void
+}
+
+function ChromaticAberrationController({ setOffset }: ChromaticAberrationControllerProps) {
+  const prevHealthRef = useRef(CHASSIS_MAX_HEALTH)
+  const strengthRef   = useRef(0)
+  const decayRef      = useRef(0)
+
+  useFrame((_, delta) => {
+    const health = useGameStore.getState().chassisHealth
+
+    // New hit: reset decay timer and bump strength
+    if (health < prevHealthRef.current) {
+      strengthRef.current = HIT_STRENGTH
+      decayRef.current    = HIT_DECAY
+    }
+    prevHealthRef.current = health
+
+    if (decayRef.current > 0) {
+      decayRef.current  = Math.max(0, decayRef.current - delta)
+      strengthRef.current = (decayRef.current / HIT_DECAY) * HIT_STRENGTH
+      setOffset(new Vector2(strengthRef.current, strengthRef.current))
+    }
+  })
+
+  return null
+}
+
+// ── AudioListenerSync ─────────────────────────────────────────────────────────
+// Lives inside the Canvas to sync the Web Audio listener position with the
+// local robot each frame. This makes remote weapon sounds attenuate correctly.
+
+interface AudioListenerSyncProps {
+  localPosRef: React.RefObject<[number, number, number]>
+}
+
+function AudioListenerSync({ localPosRef }: AudioListenerSyncProps) {
+  useFrame(() => {
+    const [x, y, z] = localPosRef.current ?? [0, 0, 0]
+    updateListenerPosition(x, y, z)
+  })
+  return null
+}
+
 interface GameCanvasProps {
   authToken?:     string
   userId?:        string
+  /** Starting credit balance seeded from auth — kept in sync with server after matches. */
+  credits?:       number
   garageOpen?:    boolean
   onGarageClose?: () => void
   /**
@@ -559,7 +616,9 @@ interface GameCanvasProps {
   onBotStateChange?: (isInstalled: boolean, isActive: boolean, startBot: () => void, stopBot: () => void) => void
 }
 
-export function GameCanvas({ authToken, userId, garageOpen, onGarageClose, onBotStateChange }: GameCanvasProps) {
+const SERVER_URL = 'http://localhost:3001'
+
+export function GameCanvas({ authToken, userId, credits: initialCredits, garageOpen, onGarageClose, onBotStateChange }: GameCanvasProps) {
   const {
     status, lobby, countdown, matchResult, joinQueue, leaveQueue, skipCountdown,
     sendSnapshot, reportScore, sendMatchEnd, latestRemoteSnapshot,
@@ -569,12 +628,23 @@ export function GameCanvas({ authToken, userId, garageOpen, onGarageClose, onBot
 
   const { isInstalled: isBotInstalled, isActive: isBotActive, workerError, installScript, startBot, stopBot, sendTick, latestInputRef, debugRef } = useBotWorker()
 
+  const credits    = useGameStore((s) => s.credits)
+  const setCredits = useGameStore((s) => s.setCredits)
+
+  // Seed store with the credits balance that was loaded at login.
+  useEffect(() => {
+    if (initialCredits !== undefined) setCredits(initialCredits)
+  }, [initialCredits, setCredits])
+
   // Notify parent whenever bot state changes so App.tsx can render the HUD button.
   const onBotStateChangeRef = useRef(onBotStateChange)
   onBotStateChangeRef.current = onBotStateChange
   useEffect(() => {
     onBotStateChangeRef.current?.(isBotInstalled, isBotActive, startBot, stopBot)
   }, [isBotInstalled, isBotActive, startBot, stopBot])
+
+  // Drives chromatic aberration intensity — bumped on chassis hit, decays to zero.
+  const [chromaticOffset, setChromaticOffset] = useState(() => new Vector2(0, 0))
 
   // Tracks local chassis world position — updated by RobotEntity each frame via ref.
   // Shared with RadarHUD (for relative positioning) and BotTickSender (for BotState.x/y).
@@ -606,11 +676,36 @@ export function GameCanvas({ authToken, userId, garageOpen, onGarageClose, onBot
     if (status === 'disconnected') setChassisHealth(100)
   }, [status, setChassisHealth])
 
+  // Start arena ambient hum on mount; stop it on unmount.
+  useEffect(() => {
+    const stop = startAmbientHum()
+    return stop
+  }, [])
+
   // Report score to server whenever it changes so the live scoreboard updates.
   const score = useGameStore((s) => s.score)
   useEffect(() => {
     if (status === 'matched') reportScore(score)
   }, [score, status, reportScore])
+
+  // Award credits when a match ends (both victory and defeat earn credits).
+  // matchResult transitions from 'none' → 'victory'|'defeat' exactly once per match.
+  const matchResultRef = useRef(matchResult)
+  useEffect(() => {
+    if (matchResult === 'none') { matchResultRef.current = 'none'; return }
+    if (matchResultRef.current !== 'none') return  // already fired this match
+    matchResultRef.current = matchResult
+    if (!authToken) return
+    const s = useGameStore.getState()
+    void fetch(`${SERVER_URL}/credits/award`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body:    JSON.stringify({ damageDealt: s.damageDealt, score: s.score }),
+    })
+      .then((r) => r.json() as Promise<{ credits?: number }>)
+      .then(({ credits }) => { if (typeof credits === 'number') setCredits(credits) })
+      .catch(() => { /* non-blocking — credits will refresh on next login */ })
+  }, [matchResult, authToken, setCredits])
 
   return (
     <>
@@ -636,6 +731,7 @@ export function GameCanvas({ authToken, userId, garageOpen, onGarageClose, onBot
         <GarageModal
           onClose={onGarageClose ?? (() => {})}
           userId={userId}
+          credits={credits}
           isBotInstalled={isBotInstalled}
           isBotActive={isBotActive}
           workerError={workerError}
@@ -745,6 +841,12 @@ export function GameCanvas({ authToken, userId, garageOpen, onGarageClose, onBot
           {/* ── Floating damage numbers anchored to 3D hit positions ────── */}
           <HitPopups />
 
+          {/* ── Sync Web Audio listener to local robot position each frame ── */}
+          <AudioListenerSync localPosRef={localPosRef} />
+
+          {/* ── Chromatic aberration controller (reacts to chassis hits) ──── */}
+          <ChromaticAberrationController setOffset={setChromaticOffset} />
+
           {/* ── Bot tick sender (feeds bot input to RobotEntity each frame) ─ */}
           <BotTickSender
             isBotActive={isBotActive}
@@ -776,6 +878,15 @@ export function GameCanvas({ authToken, userId, garageOpen, onGarageClose, onBot
               )}
             </Physics>
           </Suspense>
+
+          {/* ── Post-processing ────────────────────────────────────────────── */}
+          {/* Bloom makes emissive materials (laser/sniper beams, sparks) glow. */}
+          {/* ChromaticAberration flashes on chassis hit, driven by controller. */}
+          {/* multisampling={0} disables MSAA which can silently blank the scene */}
+          <EffectComposer multisampling={0}>
+            <Bloom luminanceThreshold={0.6} intensity={0.8} />
+            <ChromaticAberration offset={chromaticOffset} />
+          </EffectComposer>
         </Canvas>
       </GameErrorBoundary>
     </>

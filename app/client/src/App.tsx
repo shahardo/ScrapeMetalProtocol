@@ -10,6 +10,7 @@ import { useGameStore } from './store/gameStore'
 export function App() {
   const auth = useAuth()
   const matchStatus = useGameStore((s) => s.matchStatus)
+  const credits     = useGameStore((s) => s.credits)
   const isMatched   = matchStatus === 'matched'
 
   const [garageOpen,    setGarageOpen]    = useState(false)
@@ -92,6 +93,7 @@ export function App() {
             PILOT: <strong>{auth.user.username}</strong>
             {auth.user.isAdmin && <span className="hud-admin-tag"> [ADMIN]</span>}
           </span>
+          <span className="hud-credits">{credits} ¢</span>
           <button className="hud-garage-btn hud-logout-btn" onClick={auth.logout}>LOGOUT</button>
           <span className="hud-controls">
             W/S — Walk&nbsp;&nbsp;|&nbsp;&nbsp;A/D — Rotate&nbsp;&nbsp;|&nbsp;&nbsp;Space — Jump<br></br>↑↓←→ — Camera&nbsp;&nbsp;|&nbsp;&nbsp;Q — Left weapon&nbsp;&nbsp;|&nbsp;&nbsp;E — Right weapon
@@ -103,6 +105,7 @@ export function App() {
       <GameCanvas
         authToken={auth.user.token}
         userId={auth.user.userId}
+        credits={auth.user.credits}
         garageOpen={garageOpen}
         onGarageClose={() => setGarageOpen(false)}
         onBotStateChange={handleBotStateChange}

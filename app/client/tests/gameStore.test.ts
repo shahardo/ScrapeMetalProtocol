@@ -13,6 +13,7 @@ beforeEach(() => {
     laserCharges: LASER_MAX_CHARGES,
     chassisHealth: CHASSIS_MAX_HEALTH,
     damagePopups: [],
+    credits: 0,
   })
 })
 
@@ -262,5 +263,21 @@ describe('clearDamagePopup', () => {
     useGameStore.getState().addDamagePopup(25, HIT_POS)
     useGameStore.getState().clearDamagePopup('does-not-exist')
     expect(useGameStore.getState().damagePopups).toHaveLength(1)
+  })
+})
+
+// ── setCredits ────────────────────────────────────────────────────────────────
+
+describe('setCredits', () => {
+  it('sets the credit balance to the given value', () => {
+    useGameStore.getState().setCredits(350)
+    expect(useGameStore.getState().credits).toBe(350)
+  })
+
+  it('does not modify score or damageDealt', () => {
+    useGameStore.setState({ score: 3, damageDealt: 80 })
+    useGameStore.getState().setCredits(500)
+    expect(useGameStore.getState().score).toBe(3)
+    expect(useGameStore.getState().damageDealt).toBe(80)
   })
 })

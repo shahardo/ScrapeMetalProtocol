@@ -37,10 +37,10 @@ export function useAuth(): AuthAPI {
       })
       const data = await res.json() as {
         token?: string; userId?: string; username?: string
-        isAdmin?: boolean; error?: string
+        isAdmin?: boolean; credits?: number; error?: string
       }
       if (!res.ok) return data.error ?? 'Login failed'
-      persist({ token: data.token!, userId: data.userId!, username: data.username!, isAdmin: data.isAdmin ?? false })
+      persist({ token: data.token!, userId: data.userId!, username: data.username!, isAdmin: data.isAdmin ?? false, credits: data.credits ?? 0 })
       return null
     } catch {
       return 'Cannot reach the server. Is it running?'
@@ -56,10 +56,10 @@ export function useAuth(): AuthAPI {
       })
       const data = await res.json() as {
         token?: string; userId?: string; username?: string
-        isAdmin?: boolean; error?: string
+        isAdmin?: boolean; credits?: number; error?: string
       }
       if (!res.ok) return data.error ?? 'Registration failed'
-      persist({ token: data.token!, userId: data.userId!, username: data.username!, isAdmin: data.isAdmin ?? false })
+      persist({ token: data.token!, userId: data.userId!, username: data.username!, isAdmin: data.isAdmin ?? false, credits: data.credits ?? 0 })
       return null
     } catch {
       return 'Cannot reach the server. Is it running?'

@@ -8,6 +8,10 @@ import {
 } from '@react-three/rapier'
 import type { RobotSnapshot } from '../types/game'
 import { SparkBurst, makeSparkBurst, type SparkBurstData } from './weapons/WeaponSystem'
+import {
+  playGunShotAt, playShotgunShotAt, playRocketShotAt,
+  playLaserShotAt, playSniperShotAt, playHitConfirmAt,
+} from './weapons/sounds'
 import { useGameStore } from '../store/gameStore'
 import type React from 'react'
 
@@ -144,6 +148,7 @@ export function RemoteRobotEntity({
       setSparkBursts((prev) => [...prev, burst])
       addDamagePopup(whit.damage, whit.hitPos)
       damagePlayerChassis(whit.damage)
+      playHitConfirmAt(...whit.hitPos)
     }
 
     // Consume weapon event.
@@ -151,7 +156,15 @@ export function RemoteRobotEntity({
     if (wev) {
       pendingWeaponEvent.current = null
       const { type, origin, dir } = wev
-      if (type === 'gun') {
+
+      // Play the weapon sound at the remote emitter position so distance attenuates it
+      if (type === 'gun')     playGunShotAt(...origin)
+      else if (type === 'shotgun') playShotgunShotAt(...origin)
+      else if (type === 'rocket')  playRocketShotAt(...origin)
+      else if (type === 'sniper')  playSniperShotAt(...origin)
+      else                         playLaserShotAt(...origin)
+
+      if (type === 'gun' || type === 'shotgun' || type === 'rocket') {
         const id = ++bulletIdRef.current
         setRemoteBullets((prev) => [
           ...prev,

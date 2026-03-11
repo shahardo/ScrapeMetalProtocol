@@ -13,11 +13,13 @@
   "dependencies": {
     "@react-three/drei": "^9.115.0",
     "@react-three/fiber": "^8.17.0",
+    "@react-three/postprocessing": "^2.19.1",
     "@react-three/rapier": "^1.5.0",
+    "postprocessing": "^6.38.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "three": "^0.170.0",
     "socket.io-client": "^4.8.0",
+    "three": "^0.170.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

@@ -125,23 +125,26 @@ function StatBar({ label, value, max = 5, color }: { label: string; value: numbe
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface WeaponTableProps {
+  credits:       number
   onSelectLeft:  (w: WeaponType) => void
   onSelectRight: (w: WeaponType) => void
 }
 
-export function WeaponTable({ onSelectLeft, onSelectRight }: WeaponTableProps) {
+export function WeaponTable({ credits, onSelectLeft, onSelectRight }: WeaponTableProps) {
   const { leftArmWeapon, rightArmWeapon } = useGameStore()
 
   return (
     <div className="wt-list">
       {ALL_WEAPON_TYPES.map((w) => {
-        const stats = WEAPON_STATS[w]
-        const color = WEAPON_COLOR[w]
+        const stats   = WEAPON_STATS[w]
+        const color   = WEAPON_COLOR[w]
         const isLeft  = leftArmWeapon  === w
         const isRight = rightArmWeapon === w
+        // Weapons with a price gate require sufficient credits to equip
+        const locked  = stats.price > 0 && credits < stats.price
 
         return (
-          <div key={w} className={`wt-row${isLeft || isRight ? ' wt-row--equipped' : ''}`}>
+          <div key={w} className={`wt-row${isLeft || isRight ? ' wt-row--equipped' : ''}${locked ? ' wt-row--locked' : ''}`}>
 
             {/* 3-D preview thumbnail */}
             <div className="wt-preview">
@@ -171,13 +174,14 @@ export function WeaponTable({ onSelectLeft, onSelectRight }: WeaponTableProps) {
               </div>
             </div>
 
-            {/* Slot buttons */}
+            {/* Slot buttons — disabled when credits < weapon price */}
             <div className="wt-slots">
               <button
                 className={`wt-slot-btn${isLeft ? ' wt-slot-btn--active' : ''}`}
                 style={isLeft ? { borderColor: color, color } : {}}
                 onClick={() => onSelectLeft(w)}
-                title="Equip on left arm (Q key)"
+                disabled={locked}
+                title={locked ? `Requires ${stats.price} ¢` : 'Equip on left arm (Q key)'}
               >
                 {isLeft ? '✓ Q' : 'Q'}
               </button>
@@ -185,7 +189,8 @@ export function WeaponTable({ onSelectLeft, onSelectRight }: WeaponTableProps) {
                 className={`wt-slot-btn${isRight ? ' wt-slot-btn--active' : ''}`}
                 style={isRight ? { borderColor: color, color } : {}}
                 onClick={() => onSelectRight(w)}
-                title="Equip on right arm (E key)"
+                disabled={locked}
+                title={locked ? `Requires ${stats.price} ¢` : 'Equip on right arm (E key)'}
               >
                 {isRight ? '✓ E' : 'E'}
               </button>

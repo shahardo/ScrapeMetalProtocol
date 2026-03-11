@@ -4,6 +4,8 @@ export interface AuthUser {
   username: string
   isAdmin:  boolean
   token:    string
+  /** Cached credit balance — refreshed from server on login and after each match. */
+  credits:  number
 }
 
 /** One entry in the server-broadcast waiting-room list. */

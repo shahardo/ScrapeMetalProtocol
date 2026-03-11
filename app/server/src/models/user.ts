@@ -5,6 +5,7 @@ const userSchema = new Schema(
     username:     { type: String, required: true, unique: true, trim: true, minlength: 2, maxlength: 20 },
     passwordHash: { type: String, required: true },
     isAdmin:      { type: Boolean, default: false },
+    credits:      { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 )
@@ -14,6 +15,7 @@ export interface UserDocument extends Document {
   username: string
   passwordHash: string
   isAdmin: boolean
+  credits: number
   createdAt: Date
   updatedAt: Date
 }

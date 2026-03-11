@@ -86,6 +86,10 @@ interface GameStore {
   matchStatus: 'disconnected' | 'queued' | 'connecting' | 'matched'
   setMatchStatus: (s: 'disconnected' | 'queued' | 'connecting' | 'matched') => void
 
+  // ── Credits (cached from server, updated after each match) ───────────────
+  credits: number
+  setCredits: (n: number) => void
+
   // ── UI flags ──────────────────────────────────────────────────────────────
   isConnecting: boolean
   setIsConnecting: (v: boolean) => void
@@ -158,6 +162,9 @@ export const useGameStore = create<GameStore>((set) => ({
 
   matchStatus: 'disconnected',
   setMatchStatus: (s) => set({ matchStatus: s }),
+
+  credits: 0,
+  setCredits: (n) => set({ credits: n }),
 
   isConnecting: false,
   setIsConnecting: (v) => set({ isConnecting: v }),

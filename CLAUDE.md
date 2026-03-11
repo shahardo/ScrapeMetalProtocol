@@ -95,4 +95,6 @@ Don't build ahead of the current sprint without flagging it.
 - **Sprint 5-6 (done):** Socket.io matchmaking, WebRTC DataChannels, 20 Hz snapshot broadcast
 - **Sprint 7-8 (done):** Garage UI, MongoDB schemas, weapons (gun + laser), voice chat
 - **Sprint 9 (done):** JWT auth, waiting-room lobby, scoreboard, admin console
-- **Sprint 10+ (next):** Web Worker bot sandbox, shaders, audio, V1.0
+- **Sprint 10-12 (done):** Web Worker bot sandbox, extended weapons (shotgun/rocket/sniper), Garage 2.0, match lifecycle, radar HUD
+- **Sprint 13 (done):** Positional Web Audio, post-processing (Bloom + ChromaticAberration), credits economy (earn per match, gate weapons in Garage)
+- **Sprint 14+ (next):** Additional arenas, TURN server, load testing, V1.0 deployment

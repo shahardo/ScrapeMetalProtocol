@@ -10,7 +10,7 @@ import {
 } from '@react-three/rapier'
 import { rotateByQuat } from '../robot/RobotEntity'
 import { useGameStore, GUN_MAX_AMMO, LASER_MAX_CHARGES, ROCKET_MAX_AMMO } from '../../store/gameStore'
-import { playGunShot, playLaserShot, playHitConfirm } from './sounds'
+import { playGunShot, playShotgunShot, playRocketShot, playLaserShot, playSniperShot, playHitConfirm } from './sounds'
 import type { Controls } from '../useControls'
 import type { WeaponType } from '../../types/game'
 
@@ -81,6 +81,7 @@ interface LaserBeamState {
   angleY: number
   expiresAt: number   // performance.now() timestamp
   hitEnemy: boolean
+  weaponType: 'laser' | 'sniper'
 }
 
 interface MuzzleFlash {
@@ -433,7 +434,7 @@ export function WeaponSystem({
         const pDirZ = dirX * sin + dirZ * cos
         spawnBullet(emitter, pDirX, pDirZ, BULLET_SPEED, SHOTGUN_DAMAGE)
       }
-      playGunShot()
+      playShotgunShot()
       onWeaponFired?.({ type: 'shotgun', origin: spawnPos, dir: [dirX, 0, dirZ] })
     }
 
@@ -449,7 +450,7 @@ export function WeaponSystem({
       muzzleExpiresAt.current = flashExpiresAt
       setMuzzleFlash({ pos: spawnPos, expiresAt: flashExpiresAt, type: 'gun' })
       spawnBullet(emitter, dirX, dirZ, ROCKET_SPEED, ROCKET_DAMAGE, ROCKET_TTL)
-      playGunShot()   // reuse sound for now
+      playRocketShot()
       onWeaponFired?.({ type: 'rocket', origin: spawnPos, dir: [dirX, 0, dirZ] })
     }
 
@@ -497,14 +498,15 @@ export function WeaponSystem({
         length: dist,
         angleY: θ,
         expiresAt: beamExpiresAt,
-        // Sniper beam is blue, laser is red — reuse hitEnemy flag but add weapon type
-        hitEnemy: type === 'sniper' ? false : hitEnemy,   // sniper always draws blue regardless of hit
+        // sniper draws in cyan-blue, laser in red; hitEnemy flag tints laser orange on impact
+        hitEnemy: type === 'sniper' ? false : hitEnemy,
+        weaponType: type,
       })
 
       const flashExpiresAt = now + 200
       muzzleExpiresAt.current = flashExpiresAt
       setMuzzleFlash({ pos: [origin.x, origin.y, origin.z], expiresAt: flashExpiresAt, type: 'laser' })
-      playLaserShot()
+      if (type === 'sniper') { playSniperShot() } else { playLaserShot() }
       onWeaponFired?.({ type, origin: [origin.x, origin.y, origin.z], dir: [dirX, 0, dirZ], dist })
     }
 
@@ -591,46 +593,44 @@ export function WeaponSystem({
         />
       ))}
 
-      {/* ── Laser beam ─────────────────────────────────────────────────────── */}
-      {laserBeam && (
-        <>
-          <mesh position={laserBeam.midPos} rotation={[0, laserBeam.angleY, 0]}>
-            <boxGeometry args={[0.08, 0.08, laserBeam.length]} />
-            <meshStandardMaterial
-              color={laserBeam.hitEnemy ? '#ff4400' : '#ff0000'}
-              emissive={laserBeam.hitEnemy ? '#ff4400' : '#ff0000'}
-              emissiveIntensity={10}
-              transparent
-              opacity={0.95}
-            />
-          </mesh>
-          {/* Emitter sphere — anchors the beam at the firing point */}
-          <mesh position={[
-            laserBeam.midPos[0] - Math.sin(laserBeam.angleY) * laserBeam.length / 2,
-            laserBeam.midPos[1],
-            laserBeam.midPos[2] - Math.cos(laserBeam.angleY) * laserBeam.length / 2,
-          ]}>
-            <sphereGeometry args={[laserBeam.hitEnemy ? 0.22 : 0.16, 8, 8]} />
-            <meshStandardMaterial
-              color={laserBeam.hitEnemy ? '#ff4400' : '#ff2200'}
-              emissive={laserBeam.hitEnemy ? '#ff4400' : '#ff2200'}
-              emissiveIntensity={12}
-              transparent
-              opacity={0.9}
-            />
-          </mesh>
-          <pointLight
-            position={[
-              laserBeam.midPos[0] - Math.sin(laserBeam.angleY) * laserBeam.length / 2,
-              laserBeam.midPos[1],
-              laserBeam.midPos[2] - Math.cos(laserBeam.angleY) * laserBeam.length / 2,
-            ]}
-            color="#ff2200"
-            intensity={6}
-            distance={4}
-          />
-        </>
-      )}
+      {/* ── Laser / Sniper beam ─────────────────────────────────────────────── */}
+      {laserBeam && (() => {
+        // Sniper renders in cyan-blue; laser renders in red (orange on enemy hit)
+        const isSniper   = laserBeam.weaponType === 'sniper'
+        const beamColor  = isSniper ? '#44ccff' : (laserBeam.hitEnemy ? '#ff4400' : '#ff0000')
+        const lightColor = isSniper ? '#22aaff' : '#ff2200'
+        const emitterPos: [number, number, number] = [
+          laserBeam.midPos[0] - Math.sin(laserBeam.angleY) * laserBeam.length / 2,
+          laserBeam.midPos[1],
+          laserBeam.midPos[2] - Math.cos(laserBeam.angleY) * laserBeam.length / 2,
+        ]
+        return (
+          <>
+            <mesh position={laserBeam.midPos} rotation={[0, laserBeam.angleY, 0]}>
+              <boxGeometry args={[0.08, 0.08, laserBeam.length]} />
+              <meshStandardMaterial
+                color={beamColor}
+                emissive={beamColor}
+                emissiveIntensity={10}
+                transparent
+                opacity={0.95}
+              />
+            </mesh>
+            {/* Emitter sphere — anchors the beam at the firing point */}
+            <mesh position={emitterPos}>
+              <sphereGeometry args={[laserBeam.hitEnemy ? 0.22 : 0.16, 8, 8]} />
+              <meshStandardMaterial
+                color={beamColor}
+                emissive={beamColor}
+                emissiveIntensity={12}
+                transparent
+                opacity={0.9}
+              />
+            </mesh>
+            <pointLight position={emitterPos} color={lightColor} intensity={6} distance={4} />
+          </>
+        )
+      })()}
 
       {/* ── Muzzle flash ──────────────────────────────────────────────────── */}
       {muzzleFlash && (

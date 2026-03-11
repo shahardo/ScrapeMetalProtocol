@@ -37,6 +37,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       userId:   user._id.toString(),
       username: user.username,
       isAdmin:  user.isAdmin,
+      credits:  user.credits ?? 0,
     })
   })
 
@@ -66,6 +67,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       userId:   user._id.toString(),
       username: user.username,
       isAdmin:  user.isAdmin,
+      credits:  user.credits ?? 0,
     })
   })
 }

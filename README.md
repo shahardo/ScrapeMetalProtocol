@@ -24,7 +24,7 @@ npm run dev        # starts client (:5173) and server (:3001) concurrently
 
 Open `http://localhost:5173`, register an account, and click **FIND MATCH**.
 
-**Controls:** `W/S` — walk &nbsp;|&nbsp; `A/D` — rotate &nbsp;|&nbsp; `Space` — jump &nbsp;|&nbsp; `↑↓←→` — camera &nbsp;|&nbsp; `F` — gun &nbsp;|&nbsp; `L` — laser &nbsp;|&nbsp; `G` — garage &nbsp;|&nbsp; `T` — scoreboard
+**Controls:** `W/S` — walk &nbsp;|&nbsp; `A/D` — rotate &nbsp;|&nbsp; `Space` — jump &nbsp;|&nbsp; `↑↓←→` — camera &nbsp;|&nbsp; `Q` — left arm weapon &nbsp;|&nbsp; `E` — right arm weapon &nbsp;|&nbsp; `G` — garage &nbsp;|&nbsp; `T` — scoreboard
 
 ## Authentication
 
@@ -44,6 +44,9 @@ Players must register and log in before playing. Credentials are stored in Mongo
 | `GET` | `/admin/users` | Admin JWT | List all users |
 | `DELETE` | `/admin/users/:id` | Admin JWT | Delete a user |
 | `PATCH` | `/admin/users/:id/promote` | Admin JWT | Toggle admin status |
+| `GET` | `/credits` | Bearer JWT | Get current credit balance |
+| `POST` | `/credits/award` | Bearer JWT | Award credits after a match |
+| `POST` | `/credits/spend` | Bearer JWT | Spend credits on a weapon/item |
 
 ## Project Structure
 
@@ -63,7 +66,8 @@ ScrapeMetalProtocol/
 │   │       │   ├── robot/
 │   │       │   │   └── RobotEntity.tsx # Modular robot with breakable joints
 │   │       │   ├── weapons/
-│   │       │   │   └── WeaponSystem.tsx
+│   │       │   │   ├── WeaponSystem.tsx
+│   │       │   │   └── sounds.ts           # Synthesized positional Web Audio
 │   │       │   └── ui/
 │   │       │       ├── GarageModal.tsx
 │   │       │       ├── ScoreboardModal.tsx  # Top-20 leaderboard (toggle T)
@@ -80,15 +84,17 @@ ScrapeMetalProtocol/
 │           ├── index.ts               # HTTP API + Socket.io + lobby
 │           ├── auth.ts                # JWT sign / verify helpers
 │           ├── matchmaking.ts         # Pure FIFO queue
+│           ├── credits.ts             # calcMatchCredits / canAfford pure functions
 │           ├── models/
-│           │   ├── user.ts            # User schema (username, passwordHash, isAdmin)
+│           │   ├── user.ts            # User schema (username, passwordHash, isAdmin, credits)
 │           │   ├── score.ts           # Score schema (userId, username, score)
 │           │   └── robotConfig.ts     # Robot config schema
 │           └── routes/
 │               ├── auth.ts            # /auth/register, /auth/login
 │               ├── scores.ts          # /scores
 │               ├── admin.ts           # /admin/users
-│               └── garage.ts          # /garage/:userId
+│               ├── garage.ts          # /garage/:userId
+│               └── credits.ts         # /credits, /credits/award, /credits/spend
 ├── package.json                 # npm workspaces root
 └── tsconfig.base.json           # Shared TypeScript config
 ```
@@ -102,6 +108,8 @@ ScrapeMetalProtocol/
 | 5–6 | WebRTC P2P sync, matchmaking, voice chat | ✅ Done |
 | 7–8 | Garage UI, MongoDB, weapons (gun + laser) | ✅ Done |
 | 9 | Auth, lobby, scoreboard, admin console | ✅ Done |
-| 10+ | Programmable bots, shaders, audio, V1.0 polish | Pending |
+| 10–12 | Programmable bots, extended weapons (shotgun/rocket/sniper), Garage 2.0, match lifecycle, radar HUD | ✅ Done |
+| 13 | Positional Web Audio, post-processing (Bloom + ChromaticAberration), credits economy | ✅ Done |
+| 14+ | Additional arenas, TURN server, load testing, V1.0 deployment | Pending |
 
 See [`docs/ScrapeMetal PRD.md`](docs/ScrapeMetal%20PRD.md) for full feature spec and [`docs/ScrapeMetal PDD.md`](docs/ScrapeMetal%20PDD.md) for architecture and coding standards.
