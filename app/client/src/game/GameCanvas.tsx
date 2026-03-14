@@ -12,7 +12,6 @@ import { useGameStore, ROCKET_MAX_AMMO, CHASSIS_MAX_HEALTH } from '../store/game
 import { WEAPON_COLOR, WEAPON_LABEL, WEAPON_POOL, WEAPON_STATS } from './weapons/weaponRegistry'
 import type { WeaponType } from '../types/game'
 import { useBotWorker } from './bot/useBotWorker'
-import { GarageModal } from './ui/GarageModal'
 import { BotDebugPanel } from './ui/BotDebugPanel'
 import { updateListenerPosition, startAmbientHum } from './weapons/sounds'
 import type { BotState } from '../types/bot'
@@ -603,22 +602,17 @@ function AudioListenerSync({ localPosRef }: AudioListenerSyncProps) {
 }
 
 interface GameCanvasProps {
-  authToken?:     string
-  userId?:        string
+  authToken?:        string
+  userId?:           string
   /** Starting credit balance seeded from auth — kept in sync with server after matches. */
-  credits?:       number
-  garageOpen?:    boolean
-  onGarageClose?: () => void
-  /**
-   * Fired whenever bot installed/active state or the start/stop callbacks change.
-   * App.tsx uses this to render the BOT RUN/STOP button in the top HUD row.
-   */
-  onBotStateChange?: (isInstalled: boolean, isActive: boolean, startBot: () => void, stopBot: () => void) => void
+  credits?:          number
+  /** Called when the player clicks RETURN TO GARAGE (or match ends). */
+  onReturnToGarage?: () => void
 }
 
 const SERVER_URL = 'http://localhost:3001'
 
-export function GameCanvas({ authToken, userId, credits: initialCredits, garageOpen, onGarageClose, onBotStateChange }: GameCanvasProps) {
+export function GameCanvas({ authToken, userId, credits: initialCredits, onReturnToGarage }: GameCanvasProps) {
   const {
     status, lobby, countdown, matchResult, joinQueue, leaveQueue, skipCountdown,
     sendSnapshot, reportScore, sendMatchEnd, latestRemoteSnapshot,
@@ -626,7 +620,8 @@ export function GameCanvas({ authToken, userId, credits: initialCredits, garageO
     micStatus, toggleMic,
   } = useNetworking(authToken)
 
-  const { isInstalled: isBotInstalled, isActive: isBotActive, workerError, installScript, startBot, stopBot, sendTick, latestInputRef, debugRef } = useBotWorker()
+  const { isActive: isBotActive, workerError, startBot, stopBot, sendTick, latestInputRef, debugRef } = useBotWorker()
+  const botScriptValid = useGameStore((s) => s.botScriptValid)
 
   const credits    = useGameStore((s) => s.credits)
   const setCredits = useGameStore((s) => s.setCredits)
@@ -635,13 +630,6 @@ export function GameCanvas({ authToken, userId, credits: initialCredits, garageO
   useEffect(() => {
     if (initialCredits !== undefined) setCredits(initialCredits)
   }, [initialCredits, setCredits])
-
-  // Notify parent whenever bot state changes so App.tsx can render the HUD button.
-  const onBotStateChangeRef = useRef(onBotStateChange)
-  onBotStateChangeRef.current = onBotStateChange
-  useEffect(() => {
-    onBotStateChangeRef.current?.(isBotInstalled, isBotActive, startBot, stopBot)
-  }, [isBotInstalled, isBotActive, startBot, stopBot])
 
   // Drives chromatic aberration intensity — bumped on chassis hit, decays to zero.
   const [chromaticOffset, setChromaticOffset] = useState(() => new Vector2(0, 0))
@@ -672,9 +660,18 @@ export function GameCanvas({ authToken, userId, credits: initialCredits, garageO
   }, [chassisHealth, status, sendMatchEnd])
 
   // Reset health when returning to lobby so the next match starts fresh.
+  // Also auto-return to garage so the player can re-configure before queuing again.
+  const hadMatchRef = useRef(false)
   useEffect(() => {
-    if (status === 'disconnected') setChassisHealth(100)
-  }, [status, setChassisHealth])
+    if (status === 'matched') { hadMatchRef.current = true; return }
+    if (status === 'disconnected') {
+      setChassisHealth(100)
+      if (hadMatchRef.current) {
+        hadMatchRef.current = false
+        onReturnToGarage?.()
+      }
+    }
+  }, [status, setChassisHealth, onReturnToGarage])
 
   // Start arena ambient hum on mount; stop it on unmount.
   useEffect(() => {
@@ -726,19 +723,15 @@ export function GameCanvas({ authToken, userId, credits: initialCredits, garageO
         <RadarHUD localPosRef={localPosRef} localAzimuthRef={localAzimuthRef} remoteSnapshotRef={latestRemoteSnapshot} />
       )}
 
-      {/* ── Garage modal (pre-match only; hosts weapon config + bot editor) ── */}
-      {garageOpen && userId && (
-        <GarageModal
-          onClose={onGarageClose ?? (() => {})}
-          userId={userId}
-          credits={credits}
-          isBotInstalled={isBotInstalled}
-          isBotActive={isBotActive}
-          workerError={workerError}
-          onInstallBot={installScript}
-          onStartBot={startBot}
-          onStopBot={stopBot}
-        />
+      {/* ── Bot RUN/STOP (top-left, visible when a valid script is loaded) ─── */}
+      {botScriptValid && status === 'matched' && (
+        <button
+          className={`hud-garage-btn hud-bot-toggle${isBotActive ? ' hud-bot-toggle--active' : ''}`}
+          style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 30 }}
+          onClick={isBotActive ? stopBot : startBot}
+        >
+          {isBotActive ? '■ BOT STOP' : '▶ BOT RUN'}
+        </button>
       )}
 
       {/* ── Match result overlay (5 s after match ends) ─────────────────── */}
@@ -771,8 +764,10 @@ export function GameCanvas({ authToken, userId, credits: initialCredits, garageO
             {status === 'disconnected' && (
               <>
                 <p className="matchmaking-tagline">PILOT READY</p>
-                <p className="matchmaking-hint">Configure your loadout in the GARAGE, then enter the arena.</p>
                 <button className="matchmaking-btn matchmaking-btn--start" onClick={joinQueue}>START MATCH</button>
+                <button className="matchmaking-btn matchmaking-btn--cancel" onClick={onReturnToGarage}>
+                  ← RETURN TO HANGAR
+                </button>
               </>
             )}
             {status === 'queued' && (

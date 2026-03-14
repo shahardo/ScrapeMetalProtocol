@@ -176,7 +176,36 @@ To ensure long-term maintainability and collaboration, all developers must adher
 * **Weapon gating** — `WeaponTable` disables Q/E buttons for weapons the player cannot afford; shows `"Requires N ¢"` tooltip and adds `wt-row--locked` class. ✅
 * **Garage header** — `GarageModal` shows `{credits} ¢` next to the close button. App HUD shows `{credits} ¢` next to pilot name. ✅
 
-### **Sprint 14+: V1.0 Polish & Deployment**
+### **Sprint 14: Garage 3.0 — Full-Screen Loadout Hub** ✅ Done
+
+The garage becomes the primary entry point of the game. On login the player lands directly in the Garage; the arena is only entered when they explicitly click **DEPLOY**.
+
+#### Layout & Navigation
+* **Full-screen takeover** — `GarageModal` renders as a full-viewport overlay (no background canvas visible). Opened automatically after login; the arena canvas is not mounted until the player exits to play. ✅
+* **Two-panel layout:** ✅
+  * **Left panel** — scrollable weapon list showing all available weapons with stat bars (Power / Range / ROF), price in `$`, and Q/E slot-select buttons. Locked weapons are greyed out with a `$N` badge. ✅
+  * **Right panel** — large live R3F canvas showing the player's robot in 3D. Selecting a weapon slot in the left panel updates the robot mesh in real time to show the correct arm weapon geometry. ✅
+* **Wallet in `$`** — credits displayed and spent as whole dollars (`$120`). `formatDollars` helper used everywhere — no inline formatting. ✅
+* **Weapon purchase flow** — clicking **BUY** on a locked weapon calls `POST /credits/spend`, deducts the price from the wallet, unlocks the row, and enables the slot buttons immediately (optimistic UI with rollback on error). ✅
+* **Bot script tab** — collapsible section in the left panel; in-screen textarea editor only (no file picker, no install step). Syntax-validated on every keystroke via `new Function`. Status badge shows `VALID` / error inline. Script persists in Zustand across DEPLOY/return cycles. ✅
+* **DEPLOY button** — top-bar CTA. Clicking it unmounts the Garage and mounts the arena Canvas. ✅
+
+#### Bot Controls in the Arena
+* **RUN / STOP** toggle rendered in the arena HUD (not the Garage). Visible only when `botScriptValid` is true and a match is active. ✅
+
+#### Architecture Changes
+* `App.tsx` — initial route is `'garage'`. State machine: `'garage'` → (DEPLOY) → `'arena'` → (match ends) → `'garage'`. ✅
+* `GarageModal` — full-screen; receives `{ userId, authToken, onDeploy }` only. ✅
+* `RobotPreviewCanvas` + `RobotPreviewMesh` — static R3F canvas in the right panel; arms show the active Q/E weapon geometry, updated live from Zustand. ✅
+* `formatDollars(credits): string` — pure helper in `utils/formatDollars.ts`; all UI imports it. ✅
+* `useBotWorker` — auto-installs stored script on arena mount; no separate install step. `startBot()` / `stopBot()` are the only runtime toggles. ✅
+* `gameStore` — `botScript`, `botScriptValid`, `purchasedWeapons`, `addPurchasedWeapon`, `removePurchasedWeapon` added. ✅
+
+#### Testing
+* `formatDollars` unit tests: 0 → `$0`, 120 → `$120`, 9999 → `$9999`. ✅
+* `gameStore` tests: `purchasedWeapons` add/remove (idempotent), `setBotScript`, `setBotScriptValid`. ✅
+
+### **Sprint 15+: V1.0 Polish & Deployment**
 
 * Load testing (100 concurrent lobbies), TURN server integration for strict-NAT players.
 * V1.0 deployment (Vercel frontend + cloud backend).

@@ -97,4 +97,5 @@ Don't build ahead of the current sprint without flagging it.
 - **Sprint 9 (done):** JWT auth, waiting-room lobby, scoreboard, admin console
 - **Sprint 10-12 (done):** Web Worker bot sandbox, extended weapons (shotgun/rocket/sniper), Garage 2.0, match lifecycle, radar HUD
 - **Sprint 13 (done):** Positional Web Audio, post-processing (Bloom + ChromaticAberration), credits economy (earn per match, gate weapons in Garage)
-- **Sprint 14+ (next):** Additional arenas, TURN server, load testing, V1.0 deployment
+- **Sprint 14 (next):** Garage 3.0 — full-screen loadout hub, robot preview canvas, weapon purchase flow, $ wallet, in-screen bot script editor (copy/paste only, no file loader, no install step), DEPLOY → arena flow; RUN/STOP bot button in arena HUD
+- **Sprint 15+:** Additional arenas, TURN server, load testing, V1.0 deployment

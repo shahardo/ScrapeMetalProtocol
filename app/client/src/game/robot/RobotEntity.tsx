@@ -322,14 +322,16 @@ export function RobotEntity({
         localOffset={[-0.54, 0.28, 0]}
         spawnPosition={[sx - 0.54, sy + 0.28, sz]}
         breakForce={BREAK_FORCE['arm-left']}
-        colliderHalfExtents={[0.14, 0.3, 0.22]}
+        colliderHalfExtents={[0.14, 0.22, 0.32]}
       >
+        {/* Arm extends forward along Z */}
         <mesh castShadow>
-          <boxGeometry args={[0.26, 0.58, 0.42]} />
+          <boxGeometry args={[0.26, 0.42, 0.58]} />
           <meshStandardMaterial color={color} metalness={0.8} roughness={0.3} />
         </mesh>
-        <mesh castShadow position={[0, -0.38, 0]}>
-          <boxGeometry args={[0.22, 0.18, 0.36]} />
+        {/* Fist at forward tip */}
+        <mesh castShadow position={[0, 0, 0.40]}>
+          <boxGeometry args={[0.22, 0.36, 0.20]} />
           <meshStandardMaterial color={color} metalness={0.7} roughness={0.4} />
         </mesh>
       </PartWithJoint>
@@ -340,14 +342,16 @@ export function RobotEntity({
         localOffset={[0.54, 0.28, 0]}
         spawnPosition={[sx + 0.54, sy + 0.28, sz]}
         breakForce={BREAK_FORCE['arm-right']}
-        colliderHalfExtents={[0.14, 0.3, 0.22]}
+        colliderHalfExtents={[0.14, 0.22, 0.32]}
       >
+        {/* Arm extends forward along Z */}
         <mesh castShadow>
-          <boxGeometry args={[0.26, 0.58, 0.42]} />
+          <boxGeometry args={[0.26, 0.42, 0.58]} />
           <meshStandardMaterial color={color} metalness={0.8} roughness={0.3} />
         </mesh>
-        <mesh castShadow position={[0, -0.38, 0]}>
-          <boxGeometry args={[0.22, 0.18, 0.36]} />
+        {/* Fist at forward tip */}
+        <mesh castShadow position={[0, 0, 0.40]}>
+          <boxGeometry args={[0.22, 0.36, 0.20]} />
           <meshStandardMaterial color={color} metalness={0.7} roughness={0.4} />
         </mesh>
       </PartWithJoint>

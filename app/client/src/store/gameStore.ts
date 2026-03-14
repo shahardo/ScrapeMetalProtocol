@@ -90,6 +90,17 @@ interface GameStore {
   credits: number
   setCredits: (n: number) => void
 
+  // ── Purchased weapons (in-session unlock; free weapons always included) ───
+  purchasedWeapons: WeaponType[]
+  addPurchasedWeapon: (w: WeaponType) => void
+  removePurchasedWeapon: (w: WeaponType) => void
+
+  // ── Bot script (persists through garage ↔ arena transitions) ─────────────
+  botScript: string
+  botScriptValid: boolean
+  setBotScript: (s: string) => void
+  setBotScriptValid: (v: boolean) => void
+
   // ── UI flags ──────────────────────────────────────────────────────────────
   isConnecting: boolean
   setIsConnecting: (v: boolean) => void
@@ -165,6 +176,22 @@ export const useGameStore = create<GameStore>((set) => ({
 
   credits: 0,
   setCredits: (n) => set({ credits: n }),
+
+  // 'gun' and 'laser' are free so always available; paid weapons added on purchase
+  purchasedWeapons: ['gun', 'laser'],
+  addPurchasedWeapon: (w) =>
+    set((s) => ({
+      purchasedWeapons: s.purchasedWeapons.includes(w)
+        ? s.purchasedWeapons
+        : [...s.purchasedWeapons, w],
+    })),
+  removePurchasedWeapon: (w) =>
+    set((s) => ({ purchasedWeapons: s.purchasedWeapons.filter((p) => p !== w) })),
+
+  botScript: '',
+  botScriptValid: false,
+  setBotScript: (s) => set({ botScript: s }),
+  setBotScriptValid: (v) => set({ botScriptValid: v }),
 
   isConnecting: false,
   setIsConnecting: (v) => set({ isConnecting: v }),

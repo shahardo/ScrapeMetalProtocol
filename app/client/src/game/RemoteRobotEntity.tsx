@@ -225,15 +225,25 @@ export function RemoteRobotEntity({
         <boxGeometry args={[0.3, 0.1, 0.01]} />
         <meshStandardMaterial color="#ff4444" emissive="#ff4444" emissiveIntensity={3} />
       </mesh>
-      {/* Left arm */}
+      {/* Left arm — extends forward along Z */}
       <mesh castShadow position={[-0.54, 0.28, 0]}>
-        <boxGeometry args={[0.26, 0.58, 0.42]} />
+        <boxGeometry args={[0.26, 0.42, 0.58]} />
         <meshStandardMaterial color={color} metalness={0.8} roughness={0.3} />
       </mesh>
-      {/* Right arm */}
+      {/* Left fist at forward tip */}
+      <mesh castShadow position={[-0.54, 0.28, 0.40]}>
+        <boxGeometry args={[0.22, 0.36, 0.20]} />
+        <meshStandardMaterial color={color} metalness={0.7} roughness={0.4} />
+      </mesh>
+      {/* Right arm — extends forward along Z */}
       <mesh castShadow position={[0.54, 0.28, 0]}>
-        <boxGeometry args={[0.26, 0.58, 0.42]} />
+        <boxGeometry args={[0.26, 0.42, 0.58]} />
         <meshStandardMaterial color={color} metalness={0.8} roughness={0.3} />
+      </mesh>
+      {/* Right fist at forward tip */}
+      <mesh castShadow position={[0.54, 0.28, 0.40]}>
+        <boxGeometry args={[0.22, 0.36, 0.20]} />
+        <meshStandardMaterial color={color} metalness={0.7} roughness={0.4} />
       </mesh>
       <CuboidCollider args={[0.36, 0.65, 0.26]} />
     </RigidBody>

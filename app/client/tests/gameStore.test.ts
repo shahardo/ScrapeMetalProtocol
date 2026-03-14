@@ -14,6 +14,9 @@ beforeEach(() => {
     chassisHealth: CHASSIS_MAX_HEALTH,
     damagePopups: [],
     credits: 0,
+    purchasedWeapons: ['gun', 'laser'],
+    botScript: '',
+    botScriptValid: false,
   })
 })
 
@@ -279,5 +282,57 @@ describe('setCredits', () => {
     useGameStore.getState().setCredits(500)
     expect(useGameStore.getState().score).toBe(3)
     expect(useGameStore.getState().damageDealt).toBe(80)
+  })
+})
+
+// ── purchasedWeapons ──────────────────────────────────────────────────────────
+
+describe('addPurchasedWeapon', () => {
+  it('adds a new weapon to the purchased list', () => {
+    useGameStore.getState().addPurchasedWeapon('shotgun')
+    expect(useGameStore.getState().purchasedWeapons).toContain('shotgun')
+  })
+
+  it('is idempotent — does not duplicate already-purchased weapons', () => {
+    useGameStore.getState().addPurchasedWeapon('gun')
+    useGameStore.getState().addPurchasedWeapon('gun')
+    const guns = useGameStore.getState().purchasedWeapons.filter((w) => w === 'gun')
+    expect(guns).toHaveLength(1)
+  })
+})
+
+describe('removePurchasedWeapon', () => {
+  it('removes a weapon from the purchased list', () => {
+    useGameStore.getState().addPurchasedWeapon('rocket')
+    useGameStore.getState().removePurchasedWeapon('rocket')
+    expect(useGameStore.getState().purchasedWeapons).not.toContain('rocket')
+  })
+
+  it('is a no-op for a weapon not in the list', () => {
+    const before = [...useGameStore.getState().purchasedWeapons]
+    useGameStore.getState().removePurchasedWeapon('sniper')
+    expect(useGameStore.getState().purchasedWeapons).toEqual(before)
+  })
+})
+
+// ── botScript / botScriptValid ────────────────────────────────────────────────
+
+describe('setBotScript', () => {
+  it('stores the script string', () => {
+    useGameStore.getState().setBotScript('return { moveLeft: true }')
+    expect(useGameStore.getState().botScript).toBe('return { moveLeft: true }')
+  })
+})
+
+describe('setBotScriptValid', () => {
+  it('sets valid to true', () => {
+    useGameStore.getState().setBotScriptValid(true)
+    expect(useGameStore.getState().botScriptValid).toBe(true)
+  })
+
+  it('sets valid to false', () => {
+    useGameStore.setState({ botScriptValid: true })
+    useGameStore.getState().setBotScriptValid(false)
+    expect(useGameStore.getState().botScriptValid).toBe(false)
   })
 })

@@ -1,22 +1,25 @@
 /**
- * WeaponTable — full weapon catalogue shown in the Garage WEAPONS tab.
+ * WeaponTable — full weapon catalogue shown in the Garage WEAPONS section.
  *
  * Each row has:
  *  - A 3-D rotating preview thumbnail (isolated R3F Canvas, 96×96 px)
  *  - Name, description, stat bars (Power / Range / Fire Rate)
- *  - Ammo count and credit price
- *  - SELECT buttons for left (Q) and right (E) arm slots
+ *  - Ammo count and dollar price
+ *  - BUY button for weapons the player hasn't purchased yet
+ *  - SELECT buttons for left (Q) and right (E) arm slots (available once purchased)
  */
 
-import { useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import type { Group } from 'three'
 import type { WeaponType } from '../../types/game'
 import { ALL_WEAPON_TYPES, WEAPON_COLOR, WEAPON_STATS } from '../weapons/weaponRegistry'
 import { useGameStore } from '../../store/gameStore'
+import { formatDollars } from '../../utils/formatDollars'
+
+const SERVER_URL = 'http://localhost:3001'
 
 // ── Per-weapon 3-D mesh previews ──────────────────────────────────────────────
-// Each weapon gets a simple geometric stand-in that rotates on Y.
 
 function RotatingGroup({ children }: { children: React.ReactNode }) {
   const ref = useRef<Group>(null)
@@ -29,13 +32,11 @@ function RotatingGroup({ children }: { children: React.ReactNode }) {
 const PREVIEW_MESHES: Record<WeaponType, React.ReactNode> = {
   gun: (
     <RotatingGroup>
-      {/* barrel */}
       <mesh position={[0.4, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.08, 0.08, 0.8, 8]} />
         <meshStandardMaterial color="#ffaa44" emissive="#ff8800" emissiveIntensity={0.4} />
       </mesh>
-      {/* body */}
-      <mesh position={[0, 0, 0]}>
+      <mesh>
         <boxGeometry args={[0.4, 0.2, 0.2]} />
         <meshStandardMaterial color="#886633" />
       </mesh>
@@ -43,7 +44,6 @@ const PREVIEW_MESHES: Record<WeaponType, React.ReactNode> = {
   ),
   shotgun: (
     <RotatingGroup>
-      {/* wide barrel */}
       <mesh position={[0.45, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.12, 0.14, 0.9, 8]} />
         <meshStandardMaterial color="#ff8800" emissive="#ff6600" emissiveIntensity={0.4} />
@@ -56,12 +56,10 @@ const PREVIEW_MESHES: Record<WeaponType, React.ReactNode> = {
   ),
   rocket: (
     <RotatingGroup>
-      {/* rocket body */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.15, 0.1, 1.0, 8]} />
         <meshStandardMaterial color="#ff4422" emissive="#cc2200" emissiveIntensity={0.5} />
       </mesh>
-      {/* nose */}
       <mesh position={[0.55, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <coneGeometry args={[0.15, 0.3, 8]} />
         <meshStandardMaterial color="#ff6644" />
@@ -70,12 +68,10 @@ const PREVIEW_MESHES: Record<WeaponType, React.ReactNode> = {
   ),
   laser: (
     <RotatingGroup>
-      {/* emitter dish */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.22, 0.1, 0.6, 12]} />
         <meshStandardMaterial color="#ff3344" emissive="#ff0022" emissiveIntensity={0.7} />
       </mesh>
-      {/* lens */}
       <mesh position={[0.35, 0, 0]}>
         <sphereGeometry args={[0.1, 8, 8]} />
         <meshStandardMaterial color="#ff88aa" emissive="#ff3344" emissiveIntensity={1.0} />
@@ -84,17 +80,14 @@ const PREVIEW_MESHES: Record<WeaponType, React.ReactNode> = {
   ),
   sniper: (
     <RotatingGroup>
-      {/* long barrel */}
       <mesh position={[0.5, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.06, 0.06, 1.1, 8]} />
         <meshStandardMaterial color="#44ccff" emissive="#0088cc" emissiveIntensity={0.5} />
       </mesh>
-      {/* scope */}
       <mesh position={[0.1, 0.18, 0]}>
         <cylinderGeometry args={[0.06, 0.06, 0.35, 8]} />
         <meshStandardMaterial color="#336688" />
       </mesh>
-      {/* body */}
       <mesh position={[-0.1, 0, 0]}>
         <boxGeometry args={[0.5, 0.15, 0.15]} />
         <meshStandardMaterial color="#224455" />
@@ -125,27 +118,65 @@ function StatBar({ label, value, max = 5, color }: { label: string; value: numbe
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface WeaponTableProps {
-  credits:       number
-  onSelectLeft:  (w: WeaponType) => void
-  onSelectRight: (w: WeaponType) => void
+  /** JWT token for POST /credits/spend when buying a weapon. */
+  authToken: string
 }
 
-export function WeaponTable({ credits, onSelectLeft, onSelectRight }: WeaponTableProps) {
-  const { leftArmWeapon, rightArmWeapon } = useGameStore()
+export function WeaponTable({ authToken }: WeaponTableProps) {
+  const {
+    leftArmWeapon, rightArmWeapon, setLeftArmWeapon, setRightArmWeapon,
+    credits, setCredits,
+    purchasedWeapons, addPurchasedWeapon, removePurchasedWeapon,
+  } = useGameStore()
+
+  const [buying, setBuying] = useState<WeaponType | null>(null)
+
+  const handleBuy = async (w: WeaponType) => {
+    const price       = WEAPON_STATS[w].price
+    const prevCredits = useGameStore.getState().credits
+    setBuying(w)
+    // Optimistic: unlock and deduct immediately for snappy UX
+    addPurchasedWeapon(w)
+    setCredits(prevCredits - price)
+    try {
+      const res = await fetch(`${SERVER_URL}/credits/spend`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body:    JSON.stringify({ amount: price }),
+      })
+      if (!res.ok) throw new Error('Purchase failed')
+      const { credits: serverCredits } = await res.json() as { credits: number }
+      // Confirm with authoritative server balance
+      setCredits(serverCredits)
+    } catch {
+      // Rollback on error
+      removePurchasedWeapon(w)
+      setCredits(prevCredits)
+    } finally {
+      setBuying(null)
+    }
+  }
 
   return (
     <div className="wt-list">
       {ALL_WEAPON_TYPES.map((w) => {
-        const stats   = WEAPON_STATS[w]
-        const color   = WEAPON_COLOR[w]
-        const isLeft  = leftArmWeapon  === w
-        const isRight = rightArmWeapon === w
-        // Weapons with a price gate require sufficient credits to equip
-        const locked  = stats.price > 0 && credits < stats.price
+        const stats       = WEAPON_STATS[w]
+        const color       = WEAPON_COLOR[w]
+        const isLeft      = leftArmWeapon  === w
+        const isRight     = rightArmWeapon === w
+        const isPurchased = purchasedWeapons.includes(w)
+        const canAfford   = credits >= stats.price
+        const isBuying    = buying === w
 
         return (
-          <div key={w} className={`wt-row${isLeft || isRight ? ' wt-row--equipped' : ''}${locked ? ' wt-row--locked' : ''}`}>
-
+          <div
+            key={w}
+            className={[
+              'wt-row',
+              isLeft || isRight ? 'wt-row--equipped' : '',
+              !isPurchased       ? 'wt-row--locked'  : '',
+            ].filter(Boolean).join(' ')}
+          >
             {/* 3-D preview thumbnail */}
             <div className="wt-preview">
               <Canvas
@@ -164,36 +195,47 @@ export function WeaponTable({ credits, onSelectLeft, onSelectRight }: WeaponTabl
               <div className="wt-name" style={{ color }}>{stats.name}</div>
               <div className="wt-desc">{stats.desc}</div>
               <div className="wt-stats">
-                <StatBar label="PWR"  value={Math.round(stats.power / 20)}   color={color} />
-                <StatBar label="RNG"  value={stats.range}                     color={color} />
-                <StatBar label="ROF"  value={stats.fireRate}                  color={color} />
+                <StatBar label="PWR" value={Math.round(stats.power / 20)} color={color} />
+                <StatBar label="RNG" value={stats.range}                   color={color} />
+                <StatBar label="ROF" value={stats.fireRate}                color={color} />
               </div>
               <div className="wt-meta">
                 <span className="wt-ammo">AMMO {stats.ammo}</span>
-                <span className="wt-price">{stats.price > 0 ? `${stats.price} ¢` : 'FREE'}</span>
+                <span className="wt-price">{stats.price > 0 ? formatDollars(stats.price) : 'FREE'}</span>
               </div>
             </div>
 
-            {/* Slot buttons — disabled when credits < weapon price */}
+            {/* Action column: BUY (locked) or Q/E slot select (purchased) */}
             <div className="wt-slots">
-              <button
-                className={`wt-slot-btn${isLeft ? ' wt-slot-btn--active' : ''}`}
-                style={isLeft ? { borderColor: color, color } : {}}
-                onClick={() => onSelectLeft(w)}
-                disabled={locked}
-                title={locked ? `Requires ${stats.price} ¢` : 'Equip on left arm (Q key)'}
-              >
-                {isLeft ? '✓ Q' : 'Q'}
-              </button>
-              <button
-                className={`wt-slot-btn${isRight ? ' wt-slot-btn--active' : ''}`}
-                style={isRight ? { borderColor: color, color } : {}}
-                onClick={() => onSelectRight(w)}
-                disabled={locked}
-                title={locked ? `Requires ${stats.price} ¢` : 'Equip on right arm (E key)'}
-              >
-                {isRight ? '✓ E' : 'E'}
-              </button>
+              {!isPurchased ? (
+                <button
+                  className="wt-buy-btn"
+                  onClick={() => void handleBuy(w)}
+                  disabled={isBuying || !canAfford}
+                  title={!canAfford ? `Need ${formatDollars(stats.price)}` : `Buy for ${formatDollars(stats.price)}`}
+                >
+                  {isBuying ? '...' : `BUY ${formatDollars(stats.price)}`}
+                </button>
+              ) : (
+                <>
+                  <button
+                    className={`wt-slot-btn${isLeft ? ' wt-slot-btn--active' : ''}`}
+                    style={isLeft ? { borderColor: color, color } : {}}
+                    onClick={() => setLeftArmWeapon(w)}
+                    title="Equip on left arm (Q key)"
+                  >
+                    {isLeft ? '✓ Q' : 'Q'}
+                  </button>
+                  <button
+                    className={`wt-slot-btn${isRight ? ' wt-slot-btn--active' : ''}`}
+                    style={isRight ? { borderColor: color, color } : {}}
+                    onClick={() => setRightArmWeapon(w)}
+                    title="Equip on right arm (E key)"
+                  >
+                    {isRight ? '✓ E' : 'E'}
+                  </button>
+                </>
+              )}
             </div>
 
           </div>
